@@ -99,7 +99,6 @@ export interface CompanyRatings {
   glassdoorRating?: number | null;
   glassdoorCompBenefits?: number | null;
   glassdoorWLB?: number | null;
-  glassdoorCareerOpps?: number | null;
   glassdoorCulture?: number | null;
   glassdoorSrMgmt?: number | null;
   glassdoorRecommendPct?: number | null; // 0-100
@@ -129,7 +128,6 @@ export interface RatingAspects {
   overall: number;
   compBenefits: number;
   wlb: number;
-  careerOpps: number;
   culture: number;
   mgmt: number;
   recommendPct: number; // mapped to 0..5 from 0..100
@@ -146,26 +144,28 @@ function avgOrNull(values: Array<number | null | undefined>): number | null {
  * Build the aspect breakdown from a company's stored ratings.
  *
  * Pipeline per aspect:
- *  1. Bayesian-shrink each sub-rating by its source's review count.
- *  2. Average across sources (Glassdoor + Indeed) for matching aspects.
- *  3. Fall back to the overall rating when an aspect isn't available.
- *  4. Blend in Reddit/HN sentiment with weight 0.15 (capped influence so a
+ *  1. Bayesian-shrink each Indeed sub-rating by Indeed's review count.
+ *  2. Fall back to the overall rating when an aspect isn't available.
+ *  3. Blend in Reddit/HN sentiment with weight 0.15 (capped influence so a
  *     spike in trolling doesn't dominate established review data).
  *
  * Note: layoffs are surfaced on the company page as informational signal but
  * are NOT factored into the score — they're noisy and backward-looking.
+ *
+ * Indeed-only: Glassdoor data was deprecated as a primary source because
+ * grounded-search extraction succeeds for ~5% of companies vs ~22% for Indeed,
+ * and Indeed has stronger India coverage. Glassdoor fields remain in the
+ * schema for backward compatibility but are no longer read here.
  */
 export function computeRatingAspects(c: CompanyRatings): RatingAspects | null {
-  const gCount = c.glassdoorReviewCount ?? 0;
   const iCount = c.indeedReviewCount ?? 0;
   const bCount = c.blindReviewCount ?? 0;
 
   const shrink = (r: number | null | undefined, n: number) =>
     r == null ? null : bayesianShrink(r, n);
 
-  // Overall: blend of three sources, each shrunk.
+  // Overall: Indeed primary, Blind as a secondary signal when present.
   const overall = avgOrNull([
-    shrink(c.glassdoorRating, gCount),
     shrink(c.indeedRating, iCount),
     shrink(c.blindRating, bCount),
   ]);
@@ -184,28 +184,16 @@ export function computeRatingAspects(c: CompanyRatings): RatingAspects | null {
   // When stars are missing but sentiment is present, sentiment becomes the seed.
   const baseOverall = overall ?? sentAvg ?? 3;
 
-  // Aspect blends: average matching Glassdoor + Indeed sub-ratings (each shrunk).
-  const compBenefits = avgOrNull([
-    shrink(c.glassdoorCompBenefits, gCount),
-    shrink(c.indeedCompBenefits, iCount),
-  ]) ?? baseOverall;
-  const wlb = avgOrNull([
-    shrink(c.glassdoorWLB, gCount),
-    shrink(c.indeedWLB, iCount),
-  ]) ?? baseOverall;
-  const careerOpps = shrink(c.glassdoorCareerOpps ?? null, gCount) ?? baseOverall;
-  const culture = avgOrNull([
-    shrink(c.glassdoorCulture, gCount),
-    shrink(c.indeedCulture, iCount),
-  ]) ?? baseOverall;
+  // Aspect blends: Indeed sub-ratings (each shrunk), fall back to overall.
+  const compBenefits = shrink(c.indeedCompBenefits, iCount) ?? baseOverall;
+  const wlb = shrink(c.indeedWLB, iCount) ?? baseOverall;
+  const culture = shrink(c.indeedCulture, iCount) ?? baseOverall;
+  // Management blends Indeed Management + Job Security (proxy signals).
   const mgmt = avgOrNull([
-    shrink(c.glassdoorSrMgmt, gCount),
     shrink(c.indeedMgmt, iCount),
     shrink(c.indeedJobSecurity, iCount),
   ]) ?? baseOverall;
-  const recommendPct = c.glassdoorRecommendPct != null
-    ? Math.max(0, Math.min(5, c.glassdoorRecommendPct / 20)) // 0..100 -> 0..5
-    : baseOverall;
+  const recommendPct = baseOverall;
 
   // Blend sentiment in with weight 0.15 across all aspects (small but non-zero).
   const SENTIMENT_WEIGHT = 0.15;
@@ -217,7 +205,6 @@ export function computeRatingAspects(c: CompanyRatings): RatingAspects | null {
     overall: finalize(baseOverall),
     compBenefits: finalize(compBenefits),
     wlb: finalize(wlb),
-    careerOpps: finalize(careerOpps),
     culture: finalize(culture),
     mgmt: finalize(mgmt),
     recommendPct: finalize(recommendPct),
@@ -231,9 +218,8 @@ export type RatingAspectWeights = Partial<Record<keyof RatingAspects, number>>;
 export const DEFAULT_ASPECT_WEIGHTS: RatingAspectWeights = {
   overall: 0.4,
   recommendPct: 0.2,
-  wlb: 0.1,
-  compBenefits: 0.1,
-  careerOpps: 0.1,
+  wlb: 0.15,
+  compBenefits: 0.15,
   culture: 0.05,
   mgmt: 0.05,
 };

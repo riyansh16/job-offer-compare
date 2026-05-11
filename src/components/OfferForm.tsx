@@ -137,7 +137,7 @@ export function OfferForm({
           label="Sign-on bonus"
           name="signOnBonus"
           defaultValue={initial?.signOnBonus ?? 0}
-          hint={isCurrentMode ? 'Usually 0 for your current job.' : 'One-time, total. Engine amortizes over 4 years for scoring.'}
+          hint={isCurrentMode ? 'Usually 0 for your current job.' : 'One-time, paid in year 1. Counts fully toward year-1 total comp.'}
         />
         <NumField
           label="Equity vesting per year"

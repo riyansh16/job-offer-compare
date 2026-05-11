@@ -30,10 +30,13 @@ export function annualizeBonus(base: number, targetPct: number): number {
   return base * (targetPct / 100);
 }
 
-/** Sign-on amortized over `years`. */
-export function amortizeSignOn(amount: number, years: number): number {
-  if (amount <= 0 || years <= 0) return 0;
-  return amount / years;
+/** Sign-on counts fully in year 1. Earlier versions amortized over N years
+ *  but that consistently confused users (₹4L sign-on showing as ₹1L). The
+ *  trade-off: an offer with a big sign-on looks better year 1 than years 2-4.
+ *  Document this in the UI rather than hide it via amortization. */
+export function amortizeSignOn(amount: number, _years: number): number {
+  if (amount <= 0) return 0;
+  return amount;
 }
 
 /** Annual commute cost based on work mode (Hybrid = 50% of full). */
@@ -90,7 +93,6 @@ function rawMetricsFor(offer: OfferInput, opts: EngineOptions): RawMetricRow {
     growth: c.qualitativeScore,
     reviewCompBenefits: star(offer.reviewAspects?.compBenefits),
     reviewWLB: star(offer.reviewAspects?.wlb),
-    reviewCareerOpps: star(offer.reviewAspects?.careerOpps),
     reviewCulture: star(offer.reviewAspects?.culture),
     reviewMgmt: star(offer.reviewAspects?.mgmt),
   } satisfies Record<MetricKey, number>;

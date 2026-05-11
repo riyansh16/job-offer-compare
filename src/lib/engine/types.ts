@@ -44,14 +44,13 @@ export interface OfferInput {
   isCurrent?: boolean;
   compensation: CompensationInput;
   /**
-   * Per-aspect review scores (0..5, same scale as Glassdoor stars). Each is
-   * Bayesian-shrunk from the sub-ratings stored on the company record.
+   * Per-aspect review scores (0..5, same scale as star ratings). Each is
+   * Bayesian-shrunk from the Indeed sub-ratings stored on the company record.
    * Missing aspects gracefully fall back to the company's overall rating.
    */
   reviewAspects?: {
     compBenefits?: number;
     wlb?: number;
-    careerOpps?: number;
     culture?: number;
     mgmt?: number;
   };
@@ -66,10 +65,9 @@ export interface Weights {
   benefits: number;
   workMode: number;
   growth: number;
-  // Replaced single 'reviews' with 5 user-controllable review-aspect metrics.
+  // Review sub-aspects (driven by Indeed sub-ratings).
   reviewCompBenefits: number;
   reviewWLB: number;
-  reviewCareerOpps: number;
   reviewCulture: number;
   reviewMgmt: number;
 }
@@ -86,7 +84,6 @@ export const METRIC_KEYS: MetricKey[] = [
   'growth',
   'reviewCompBenefits',
   'reviewWLB',
-  'reviewCareerOpps',
   'reviewCulture',
   'reviewMgmt',
 ];
@@ -95,13 +92,12 @@ export const METRIC_LABELS: Record<MetricKey, string> = {
   salary: 'Base salary',
   bonus: 'Annual bonus',
   equity: 'Equity (annualized)',
-  signOn: 'Sign-on (amortized)',
+  signOn: 'Sign-on (year 1)',
   benefits: 'Benefits value',
   workMode: 'Work mode',
   growth: 'Career growth / fit',
   reviewCompBenefits: 'Reviews · Comp & Benefits',
   reviewWLB: 'Reviews · Work-Life Balance',
-  reviewCareerOpps: 'Reviews · Career Opportunities',
   reviewCulture: 'Reviews · Culture',
   reviewMgmt: 'Reviews · Management',
 };

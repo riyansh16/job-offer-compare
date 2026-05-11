@@ -18,7 +18,6 @@ export const PRESET_WEIGHTS: Record<string, Weights> = {
     growth: 5,
     reviewCompBenefits: 3,
     reviewWLB: 3,
-    reviewCareerOpps: 3,
     reviewCulture: 2,
     reviewMgmt: 2,
   },
@@ -32,7 +31,6 @@ export const PRESET_WEIGHTS: Record<string, Weights> = {
     growth: 1,
     reviewCompBenefits: 5,
     reviewWLB: 0,
-    reviewCareerOpps: 1,
     reviewCulture: 0,
     reviewMgmt: 1,
   },
@@ -46,7 +44,6 @@ export const PRESET_WEIGHTS: Record<string, Weights> = {
     growth: 3,
     reviewCompBenefits: 1,
     reviewWLB: 10,
-    reviewCareerOpps: 0,
     reviewCulture: 5,
     reviewMgmt: 3,
   },
@@ -60,7 +57,6 @@ export const PRESET_WEIGHTS: Record<string, Weights> = {
     growth: 10,
     reviewCompBenefits: 2,
     reviewWLB: 1,
-    reviewCareerOpps: 8,
     reviewCulture: 2,
     reviewMgmt: 6,
   },
@@ -76,15 +72,15 @@ export const PROFILE_RATING_WEIGHTS: Record<
   string,
   Partial<
     Record<
-      'overall' | 'compBenefits' | 'wlb' | 'careerOpps' | 'culture' | 'mgmt' | 'recommendPct',
+      'overall' | 'compBenefits' | 'wlb' | 'culture' | 'mgmt' | 'recommendPct',
       number
     >
   >
 > = {
-  Balanced: { overall: 0.35, recommendPct: 0.2, wlb: 0.1, compBenefits: 0.1, careerOpps: 0.1, culture: 0.075, mgmt: 0.075 },
-  'Money-focused': { compBenefits: 0.5, careerOpps: 0.15, overall: 0.25, recommendPct: 0.1 },
+  Balanced: { overall: 0.4, recommendPct: 0.2, wlb: 0.15, compBenefits: 0.15, culture: 0.05, mgmt: 0.05 },
+  'Money-focused': { compBenefits: 0.55, overall: 0.3, recommendPct: 0.15 },
   'Work-life balance': { wlb: 0.5, culture: 0.2, recommendPct: 0.15, mgmt: 0.1, overall: 0.05 },
-  'Career growth': { careerOpps: 0.45, mgmt: 0.2, overall: 0.2, recommendPct: 0.15 },
+  'Career growth': { mgmt: 0.4, overall: 0.3, recommendPct: 0.2, culture: 0.1 },
 };
 
 

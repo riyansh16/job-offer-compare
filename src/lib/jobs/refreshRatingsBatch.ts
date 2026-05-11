@@ -79,22 +79,16 @@ export async function refreshRatingsBatch(opts: BatchOptions): Promise<BatchResu
         const setIfNotNull = (key: string, v: unknown) => {
           if (v != null) data[key] = v;
         };
-        setIfNotNull('glassdoorRating', r.glassdoorRating);
-        setIfNotNull('glassdoorReviewCount', r.glassdoorReviewCount);
-        setIfNotNull('glassdoorCompBenefits', r.glassdoorCompBenefits);
-        setIfNotNull('glassdoorWLB', r.glassdoorWLB);
-        setIfNotNull('glassdoorCareerOpps', r.glassdoorCareerOpps);
-        setIfNotNull('glassdoorCulture', r.glassdoorCulture);
-        setIfNotNull('glassdoorSrMgmt', r.glassdoorSrMgmt);
-        setIfNotNull('glassdoorRecommendPct', r.glassdoorRecommendPct);
-        setIfNotNull('glassdoorCeoApprovalPct', r.glassdoorCeoApprovalPct);
-        setIfNotNull('glassdoorUrl', r.glassdoorUrl);
         setIfNotNull('indeedRating', r.indeedRating);
         setIfNotNull('indeedReviewCount', r.indeedReviewCount);
+        setIfNotNull('indeedCompBenefits', r.indeedCompBenefits);
+        setIfNotNull('indeedWLB', r.indeedWLB);
+        setIfNotNull('indeedJobSecurity', r.indeedJobSecurity);
+        setIfNotNull('indeedMgmt', r.indeedMgmt);
+        setIfNotNull('indeedCulture', r.indeedCulture);
         setIfNotNull('indeedUrl', r.indeedUrl);
 
-        const gotAnyData =
-          r.glassdoorRating != null || r.indeedRating != null;
+        const gotAnyData = r.indeedRating != null;
         if (gotAnyData) {
           data.ratingsUpdatedAt = new Date();
           withData++;

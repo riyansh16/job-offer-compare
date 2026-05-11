@@ -25,7 +25,26 @@ async function main() {
   });
   console.log(`Glassdoor: nulled ${gdResult.count} rows missing source URL.`);
 
-  // Indeed: same deal.
+  // Indeed-only switch: clear ALL Glassdoor data (we no longer fetch it).
+  // Keeps the schema columns for backward compat but stops them affecting scores.
+  const gdAllResult = await prisma.company.updateMany({
+    where: {},
+    data: {
+      glassdoorRating: null,
+      glassdoorUrl: null,
+      glassdoorReviewCount: null,
+      glassdoorCompBenefits: null,
+      glassdoorWLB: null,
+      glassdoorCareerOpps: null,
+      glassdoorCulture: null,
+      glassdoorSrMgmt: null,
+      glassdoorRecommendPct: null,
+      glassdoorCeoApprovalPct: null,
+    },
+  });
+  console.log(`Glassdoor: cleared ${gdAllResult.count} rows (Indeed-only mode).`);
+
+  // Indeed: same deal \u2014 only drop when URL missing.
   const inResult = await prisma.company.updateMany({
     where: { indeedUrl: null },
     data: {

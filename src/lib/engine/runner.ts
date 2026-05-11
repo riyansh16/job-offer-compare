@@ -134,7 +134,6 @@ export async function runComparisonForOffers(
       glassdoorRating: o.company.glassdoorRating,
       glassdoorCompBenefits: o.company.glassdoorCompBenefits,
       glassdoorWLB: o.company.glassdoorWLB,
-      glassdoorCareerOpps: o.company.glassdoorCareerOpps,
       glassdoorCulture: o.company.glassdoorCulture,
       glassdoorSrMgmt: o.company.glassdoorSrMgmt,
       glassdoorRecommendPct: o.company.glassdoorRecommendPct,
@@ -189,7 +188,6 @@ export async function runComparisonForOffers(
         ? {
             compBenefits: aspects.compBenefits,
             wlb: aspects.wlb,
-            careerOpps: aspects.careerOpps,
             culture: aspects.culture,
             mgmt: aspects.mgmt,
           }

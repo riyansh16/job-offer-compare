@@ -1,36 +1,30 @@
 /**
- * Gemini-grounded rating fetcher for Glassdoor + Indeed.
+ * Gemini-grounded rating fetcher for Indeed (India-focused tool).
  *
- * Why Gemini-with-grounding instead of direct scraping:
- *  - Glassdoor and Indeed return HTTP 403 to any direct fetch (Cloudflare).
- *  - Google's search index has cached "Glassdoor: 4.4★" snippets for most
- *    indexed companies. Gemini's grounded search retrieves those.
- *  - Source URLs come back in groundingMetadata so we can show citations.
+ * Why Indeed-only:
+ *  - Higher India usage than Glassdoor; better signal for our audience.
+ *  - Glassdoor's Cloudflare protection makes grounded search unreliable
+ *    (~5% URL extraction success vs ~22% for Indeed).
+ *  - Single-source story is cleaner: one platform, one freshness story,
+ *    one verifiable URL per company.
  *
  * Hard rules to avoid hallucinated numbers:
  *  - Reject any rating outside 0..5.
  *  - Reject any review count outside 0..10_000_000.
  *  - Reject sub-ratings if no overall rating was found (likely confabulation).
- *  - Always store the source URLs Gemini cited; if none cited, drop the value.
+ *  - Always store the source URL Gemini cited; if missing, drop the value.
  */
 import { GoogleGenAI, type GroundingChunk } from '@google/genai';
 
 export interface LlmRatingResult {
-  /** Overall Glassdoor rating, 0..5. null if not found. */
-  glassdoorRating: number | null;
-  glassdoorReviewCount: number | null;
-  glassdoorCompBenefits: number | null;
-  glassdoorWLB: number | null;
-  glassdoorCareerOpps: number | null;
-  glassdoorCulture: number | null;
-  glassdoorSrMgmt: number | null;
-  glassdoorRecommendPct: number | null;
-  glassdoorCeoApprovalPct: number | null;
-  glassdoorUrl: string | null;
-
   /** Overall Indeed rating, 0..5. null if not found. */
   indeedRating: number | null;
   indeedReviewCount: number | null;
+  indeedCompBenefits: number | null;
+  indeedWLB: number | null;
+  indeedJobSecurity: number | null;
+  indeedMgmt: number | null;
+  indeedCulture: number | null;
   indeedUrl: string | null;
 
   /** Raw URLs Gemini grounded against, for audit/debug. */
@@ -42,35 +36,30 @@ export interface LlmRatingResult {
 const MODEL_ID = 'gemini-2.5-flash-lite';
 
 const SYSTEM_PROMPT = `You are a precise data extractor.
-Given a company name, you search the web for its current Glassdoor and Indeed
-ratings and return them as STRICT JSON only — no prose, no markdown.
+Given a company name, you search the web for its current Indeed (indeed.com) ratings
+and return them as STRICT JSON only — no prose, no markdown.
 
 Rules:
 - Numbers must be the exact published values, never estimates or averages.
 - If a field is unavailable or you are not confident, return null. Do NOT guess.
-- Sub-ratings like "Compensation & Benefits" only count if they are listed
-  separately on the company's Glassdoor profile, not derived.
-- Recommend% and CEO approval% are integers 0-100.
-- Review counts are integers (e.g. 41123, not "41k").
-- Always include glassdoorUrl and indeedUrl when you find data, pointing to
-  the exact Glassdoor/Indeed company page (NOT a search result page).
-- If the company has no Glassdoor or Indeed presence at all, set notFound=true
-  and return null for every numeric field.
+- Sub-ratings only count if they are listed separately on the Indeed company page.
+- Review counts are integers (e.g. 8923, not "8.9k").
+- Always include indeedUrl pointing to the exact Indeed company-overview page
+  (e.g. https://www.indeed.com/cmp/Microsoft — NOT a search URL).
+- Look up the India-specific page when possible (https://in.indeed.com/cmp/...);
+  fall back to the global page if no India page exists.
+- If the company has no Indeed presence at all, set notFound=true and return
+  null for every numeric field.
 
 Output schema (return EXACTLY this shape, all keys present):
 {
-  "glassdoorRating": number|null,
-  "glassdoorReviewCount": number|null,
-  "glassdoorCompBenefits": number|null,
-  "glassdoorWLB": number|null,
-  "glassdoorCareerOpps": number|null,
-  "glassdoorCulture": number|null,
-  "glassdoorSrMgmt": number|null,
-  "glassdoorRecommendPct": number|null,
-  "glassdoorCeoApprovalPct": number|null,
-  "glassdoorUrl": string|null,
   "indeedRating": number|null,
   "indeedReviewCount": number|null,
+  "indeedCompBenefits": number|null,
+  "indeedWLB": number|null,
+  "indeedJobSecurity": number|null,
+  "indeedMgmt": number|null,
+  "indeedCulture": number|null,
   "indeedUrl": string|null,
   "notFound": boolean
 }`;
@@ -83,7 +72,7 @@ export interface FetchOptions {
 }
 
 /**
- * Fetch Glassdoor + Indeed ratings for a single company via Gemini grounded search.
+ * Fetch Indeed ratings for a single company via Gemini grounded search.
  * Returns null if the API call itself fails (network, quota, missing key).
  */
 export async function fetchLlmRatings(
@@ -104,10 +93,10 @@ export async function fetchLlmRatings(
     .filter(Boolean)
     .join(' ');
 
-  const prompt = `Find the current Glassdoor and Indeed ratings for "${companyName}" ${disambiguator}.
+  const prompt = `Find the current Indeed (indeed.com) ratings for "${companyName}" ${disambiguator}.
 
 Search the web and return STRICT JSON matching the schema in the system prompt.
-Make sure the URLs you return are the exact Glassdoor / Indeed company-overview pages.`;
+Make sure indeedUrl is the exact Indeed company-overview page (e.g. /cmp/CompanyName).`;
 
   const ai = new GoogleGenAI({ apiKey });
 
@@ -161,11 +150,6 @@ Make sure the URLs you return are the exact Glassdoor / Indeed company-overview 
     if (v < 0 || v > 10_000_000) return null;
     return Math.round(v);
   };
-  const validPct = (v: unknown): number | null => {
-    if (typeof v !== 'number' || !Number.isFinite(v)) return null;
-    if (v < 0 || v > 100) return null;
-    return Math.round(v);
-  };
   const validUrl = (v: unknown, mustContain: string): string | null => {
     if (typeof v !== 'string' || !v.startsWith('http')) return null;
     if (!v.toLowerCase().includes(mustContain)) return null;
@@ -173,48 +157,37 @@ Make sure the URLs you return are the exact Glassdoor / Indeed company-overview 
   };
 
   const result: LlmRatingResult = {
-    glassdoorRating: validRating(parsed.glassdoorRating),
-    glassdoorReviewCount: validCount(parsed.glassdoorReviewCount),
-    glassdoorCompBenefits: validRating(parsed.glassdoorCompBenefits),
-    glassdoorWLB: validRating(parsed.glassdoorWLB),
-    glassdoorCareerOpps: validRating(parsed.glassdoorCareerOpps),
-    glassdoorCulture: validRating(parsed.glassdoorCulture),
-    glassdoorSrMgmt: validRating(parsed.glassdoorSrMgmt),
-    glassdoorRecommendPct: validPct(parsed.glassdoorRecommendPct),
-    glassdoorCeoApprovalPct: validPct(parsed.glassdoorCeoApprovalPct),
-    glassdoorUrl: validUrl(parsed.glassdoorUrl, 'glassdoor.com'),
     indeedRating: validRating(parsed.indeedRating),
     indeedReviewCount: validCount(parsed.indeedReviewCount),
+    indeedCompBenefits: validRating(parsed.indeedCompBenefits),
+    indeedWLB: validRating(parsed.indeedWLB),
+    indeedJobSecurity: validRating(parsed.indeedJobSecurity),
+    indeedMgmt: validRating(parsed.indeedMgmt),
+    indeedCulture: validRating(parsed.indeedCulture),
     indeedUrl: validUrl(parsed.indeedUrl, 'indeed.com'),
     sourceUrls,
     notFound: parsed.notFound === true,
   };
 
-  // Anti-hallucination guard: if there's no glassdoorUrl, drop ALL Glassdoor
-  // numbers — they were likely invented. Same for Indeed.
-  if (!result.glassdoorUrl) {
-    result.glassdoorRating = null;
-    result.glassdoorReviewCount = null;
-    result.glassdoorCompBenefits = null;
-    result.glassdoorWLB = null;
-    result.glassdoorCareerOpps = null;
-    result.glassdoorCulture = null;
-    result.glassdoorSrMgmt = null;
-    result.glassdoorRecommendPct = null;
-    result.glassdoorCeoApprovalPct = null;
-  }
+  // Anti-hallucination guard: if there's no indeedUrl, drop ALL Indeed numbers.
+  // The model invented them without a verifiable source.
   if (!result.indeedUrl) {
     result.indeedRating = null;
     result.indeedReviewCount = null;
+    result.indeedCompBenefits = null;
+    result.indeedWLB = null;
+    result.indeedJobSecurity = null;
+    result.indeedMgmt = null;
+    result.indeedCulture = null;
   }
 
   // Anti-hallucination guard: sub-ratings without overall = drop sub-ratings.
-  if (result.glassdoorRating == null) {
-    result.glassdoorCompBenefits = null;
-    result.glassdoorWLB = null;
-    result.glassdoorCareerOpps = null;
-    result.glassdoorCulture = null;
-    result.glassdoorSrMgmt = null;
+  if (result.indeedRating == null) {
+    result.indeedCompBenefits = null;
+    result.indeedWLB = null;
+    result.indeedJobSecurity = null;
+    result.indeedMgmt = null;
+    result.indeedCulture = null;
   }
 
   return result;

@@ -107,7 +107,6 @@ export default async function Home() {
             <ul className="space-y-1">
               <li>Comp &amp; Benefits</li>
               <li>Work-Life Balance</li>
-              <li>Career Opportunities</li>
               <li>Culture</li>
               <li>Management</li>
             </ul>

@@ -33,7 +33,7 @@ const makeOffer = (id: string, over: Partial<OfferInput> = {}): OfferInput => ({
   title: 'Senior Engineer',
   location: 'New York, NY',
   compensation: makeComp(),
-  reviewAspects: { compBenefits: 4, wlb: 4, careerOpps: 4, culture: 4, mgmt: 4 },
+  reviewAspects: { compBenefits: 4, wlb: 4, culture: 4, mgmt: 4 },
   ...over,
 });
 
@@ -48,11 +48,12 @@ describe('annualizeBonus', () => {
 });
 
 describe('amortizeSignOn', () => {
-  it('divides by years', () => {
-    expect(amortizeSignOn(40_000, 4)).toBe(10_000);
+  it('counts the full sign-on amount in year 1', () => {
+    expect(amortizeSignOn(40_000, 4)).toBe(40_000);
   });
-  it('returns 0 when years is 0 or negative', () => {
-    expect(amortizeSignOn(40_000, 0)).toBe(0);
+  it('returns 0 for zero or negative amounts', () => {
+    expect(amortizeSignOn(0, 4)).toBe(0);
+    expect(amortizeSignOn(-100, 4)).toBe(0);
   });
 });
 
@@ -103,7 +104,6 @@ describe('normalizeWeights', () => {
       growth: 100,
       reviewCompBenefits: 0,
       reviewWLB: 0,
-      reviewCareerOpps: 0,
       reviewCulture: 0,
       reviewMgmt: 0,
     };
@@ -116,11 +116,11 @@ describe('normalizeWeights', () => {
     const w: Weights = {
       salary: 0, bonus: 0, equity: 0, signOn: 0, benefits: 0,
       workMode: 0, growth: 0,
-      reviewCompBenefits: 0, reviewWLB: 0, reviewCareerOpps: 0, reviewCulture: 0, reviewMgmt: 0,
+      reviewCompBenefits: 0, reviewWLB: 0, reviewCulture: 0, reviewMgmt: 0,
     };
     const norm = normalizeWeights(w);
-    // 12 metrics now -> uniform fallback is 100/12 ≈ 8.33
-    expect(norm.salary).toBeCloseTo(100 / 12, 5);
+    // 11 metrics now -> uniform fallback is 100/11 ≈ 9.09
+    expect(norm.salary).toBeCloseTo(100 / 11, 5);
   });
 });
 
