@@ -4,6 +4,8 @@ A private, India-focused web app for comparing competing job offers — base, bo
 
 > **Built on a simple promise:** every number you see is either entered by you or fetched live from a named, citable source. Nothing is fabricated. Where data isn't available, the app says so.
 
+📖 **For a layman-friendly walkthrough of how the math works** (suitable for sharing with non-technical readers), see [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md).
+
 ---
 
 ## The problem this solves
@@ -11,11 +13,11 @@ A private, India-focused web app for comparing competing job offers — base, bo
 You have 2-4 active offers. You're trying to answer:
 
 - *"Is the higher TC really higher once I factor in equity vesting and stock growth?"*
-- *"Is Company A's 4.2★ on Glassdoor actually better than Company B's 3.9★ when one has 50× more reviews?"*
+- *"Is Company A's 4.2★ on Indeed actually better than Company B's 3.9★ when one has 50× more reviews?"*
 - *"What does the market — Reddit, HN — actually say about working at Razorpay vs Stripe right now?"*
 - *"If I push back on this offer, what should I ask for and what's a realistic ceiling?"*
 
-Spreadsheets get the math kind-of right but can't answer the qualitative half. Levels.fyi tells you comp but not culture. Glassdoor tells you culture but not your specific offer's value. This portal stitches both halves together with weighted scoring + AI commentary, and shows its work.
+Spreadsheets get the math kind-of right but can't answer the qualitative half. Levels.fyi tells you comp but not culture. Indeed tells you culture but not your specific offer's value. This portal stitches both halves together with weighted scoring + AI commentary, and shows its work.
 
 ---
 
@@ -23,11 +25,11 @@ Spreadsheets get the math kind-of right but can't answer the qualitative half. L
 
 The core design tension in any "compare offers" tool is **fabricated authority** — confident-looking numbers that are guesses. We avoid this with five concrete rules:
 
-1. **Source-or-null.** Every external rating (Glassdoor, Indeed) is stored alongside the source URL it came from. If we couldn't fetch a real source, the number is `null` and the UI shows "no rating available" rather than a guess.
+1. **Source-or-null.** Every external rating (Indeed) is stored alongside the source URL it came from. If we couldn't fetch a real source, the number is `null` and the UI shows "no rating available" rather than a guess.
 
 2. **Bayesian shrinkage on small samples.** A 4.8★ score from 6 reviews is worth less than a 4.2★ score from 80,000. The engine pulls thin-sample scores toward the global mean (3.7★) so a tiny startup's cherry-picked reviews can't dominate.
 
-3. **Live, source-cited refresh.** Glassdoor + Indeed ratings are fetched via Gemini-grounded web search and stored with their citation URL. Refreshes happen on a daily rotating schedule so every company is updated within ~30 days.
+3. **Live, source-cited refresh.** Indeed ratings are fetched via Gemini-grounded web search and stored with their citation URL. Refreshes happen on a daily rotating schedule so every company is updated within ~30 days.
 
 4. **Stock CAGR from real prices.** Equity isn't a hypothetical — we pull actual closing prices from Yahoo Finance, compute trailing 5y and 1y CAGR, and let you pick which to apply. Cached 6h, no API key needed.
 
@@ -46,13 +48,12 @@ Each offer gets normalized 0–100 across these metrics, then weighted by you in
 | **Compensation** | Base salary | You enter |
 |  | Annual bonus | You enter (target %) |
 |  | Equity (annualized, growth-adjusted) | You enter grant + vesting; stock CAGR from Yahoo Finance |
-|  | Sign-on bonus (4-yr amortized) | You enter |
+|  | Sign-on bonus (counts fully in year 1) | You enter |
 |  | Benefits value | You enter |
 | **Lifestyle** | Work mode (Remote / Hybrid / Onsite) | You enter |
 |  | Career growth / fit | You rate 0–100 |
-| **Reviews** | Comp & Benefits | Glassdoor + Indeed (live), blended with Reddit/HN sentiment |
+| **Reviews** | Comp & Benefits | Indeed (live), blended with Reddit/HN sentiment |
 |  | Work-Life Balance | Same |
-|  | Career Opportunities | Same |
 |  | Culture | Same |
 |  | Management | Same |
 
@@ -66,7 +67,9 @@ These are deliberately excluded:
 
 - **Cost-of-living adjustment between Indian cities.** A rupee in Mumbai and a rupee in Pune buy meaningfully different things, but the indices required to do this honestly (Numbeo etc.) aren't reliable enough to bake into scoring. v2.
 - **International COL / FX.** Same reason. The app is INR-only by default; non-INR offers get FX conversion but no purchasing-power adjustment.
-- **Glassdoor "recommend %" and CEO approval %.** Stored, displayed, but not weighted — they correlate strongly with the overall rating already, so weighting them again is double-counting.
+- **Glassdoor / AmbitionBox / Blind ratings.** Glassdoor is behind aggressive Cloudflare protection (~5% extraction success); we use Indeed as the single source of truth. Schema for Glassdoor fields kept for backward compat but not refreshed.
+- **"Career Opportunities" as a separate metric.** Indeed bundles this into "Job security/advancement"; Glassdoor measured it separately but we don't use Glassdoor anymore. Rather than fake a number from the overall rating, we dropped the metric.
+- **"Recommend %" and CEO approval %.** Highly correlated with overall rating already — weighting them again is double-counting.
 
 ---
 
@@ -78,7 +81,7 @@ These are deliberately excluded:
 | **Reddit** (OAuth API) | Sentiment from r/cscareerquestions, r/IndianWorkplace, etc. | 7d cache | ✅ |
 | **Hacker News** (Algolia) | Sentiment from HN comments | 7d cache | ✅ |
 | **Frankfurter** (ECB) | FX rates for non-INR offers | 24h cache | ✅ |
-| **Gemini grounded search** | Glassdoor + Indeed ratings + URLs | 30d rotating refresh | ✅ (free tier) |
+| **Gemini grounded search** | Indeed ratings + URLs | 30d rotating refresh | ✅ (free tier) |
 | **Azure OpenAI gpt-4.1-mini** | AI verdicts, trade-offs, negotiation tips | On-demand | Paid (Azure credit) |
 
 ---
