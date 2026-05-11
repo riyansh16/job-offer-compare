@@ -1,0 +1,176 @@
+import { notFound, redirect } from 'next/navigation';
+import { auth } from '@/lib/auth';
+import { prisma } from '@/lib/db';
+import { CompanyRefreshPanel } from '@/components/CompanyRefreshPanel';
+import { computeHistoricalCagr } from '@/lib/engine/equity';
+
+export default async function CompanyDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const session = await auth();
+  if (!session?.user) redirect('/auth/signin');
+  const company = await prisma.company.findUnique({
+    where: { slug },
+    include: { sentiments: true, prices: { orderBy: { date: 'asc' } } },
+  });
+  if (!company) notFound();
+
+  // Pre-compute price stats from cached history so the panel renders without
+  // requiring a Refresh click.
+  const pricePoints = company.prices.map((p) => ({ date: p.date, closeUsd: p.closeUsd }));
+  const initialCurrentPrice = pricePoints.length > 0 ? pricePoints[pricePoints.length - 1].closeUsd : null;
+  const initialCagr5y = pricePoints.length >= 2 ? computeHistoricalCagr(pricePoints, 5) : null;
+  const initialCagr1y = pricePoints.length >= 2 ? computeHistoricalCagr(pricePoints, 1) : null;
+
+  return (
+    <div className="space-y-6">
+      <header>
+        <h1 className="text-2xl font-semibold">{company.name}</h1>
+        <p className="text-sm text-[rgb(var(--muted-foreground))]">
+          {[company.industry, company.hqLocation, company.tickerSymbol].filter(Boolean).join(' · ')}
+        </p>
+        {company.website && (
+          <a
+            href={company.website}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1 inline-block text-xs text-[rgb(var(--primary))] underline"
+          >
+            {company.website.replace(/^https?:\/\//, '')}
+          </a>
+        )}
+      </header>
+
+      <section className="card grid grid-cols-2 gap-3 md:grid-cols-4 text-sm">
+        <Stat label="Industry" value={company.industry ?? '—'} />
+        <Stat label="HQ" value={company.hqLocation ?? '—'} />
+        <Stat label="Size" value={company.size ?? '—'} />
+        <Stat label="Status" value={company.isPublic ? `Public · ${company.tickerSymbol ?? ''}` : 'Private'} />
+        <Stat label="Glassdoor" value={company.glassdoorRating ? `${company.glassdoorRating.toFixed(1)} ★` : '—'} />
+        <Stat label="Indeed" value={company.indeedRating ? `${company.indeedRating.toFixed(1)} ★` : '—'} />
+        <Stat label="Blind" value={company.blindRating ? `${company.blindRating.toFixed(1)} ★` : '—'} />
+        <Stat
+          label="Ratings updated"
+          value={company.ratingsUpdatedAt ? new Date(company.ratingsUpdatedAt).toLocaleDateString() : '—'}
+        />
+      </section>
+
+      {hasGlassdoorBreakdown(company) && (
+        <section className="card space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Glassdoor breakdown</h2>
+            {company.glassdoorReviewCount != null && (
+              <span className="text-xs text-[rgb(var(--muted-foreground))]">
+                {company.glassdoorReviewCount.toLocaleString()} reviews
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 text-sm">
+            <Stat label="Comp & Benefits" value={fmtRating(company.glassdoorCompBenefits)} />
+            <Stat label="Work-Life Balance" value={fmtRating(company.glassdoorWLB)} />
+            <Stat label="Career Opportunities" value={fmtRating(company.glassdoorCareerOpps)} />
+            <Stat label="Culture & Values" value={fmtRating(company.glassdoorCulture)} />
+            <Stat label="Senior Management" value={fmtRating(company.glassdoorSrMgmt)} />
+            <Stat label="Recommend to friend" value={fmtPct(company.glassdoorRecommendPct)} />
+            <Stat label="CEO approval" value={fmtPct(company.glassdoorCeoApprovalPct)} />
+          </div>
+        </section>
+      )}
+
+      {hasIndeedBreakdown(company) && (
+        <section className="card space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Indeed breakdown</h2>
+            {company.indeedReviewCount != null && (
+              <span className="text-xs text-[rgb(var(--muted-foreground))]">
+                {company.indeedReviewCount.toLocaleString()} reviews
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 text-sm">
+            <Stat label="Comp & Benefits" value={fmtRating(company.indeedCompBenefits)} />
+            <Stat label="Work-Life Balance" value={fmtRating(company.indeedWLB)} />
+            <Stat label="Job Security" value={fmtRating(company.indeedJobSecurity)} />
+            <Stat label="Management" value={fmtRating(company.indeedMgmt)} />
+            <Stat label="Culture" value={fmtRating(company.indeedCulture)} />
+          </div>
+        </section>
+      )}
+
+      {company.layoffsLast12mPct != null && company.layoffsLast12mPct > 0 && (
+        <section className="card border-l-4 border-l-[rgb(var(--danger))] space-y-1">
+          <h2 className="font-semibold text-[rgb(var(--danger))]">Layoffs (last 12 months)</h2>
+          <p className="text-sm">
+            <span className="font-mono text-lg">{company.layoffsLast12mPct.toFixed(1)}%</span>{' '}
+            of headcount cut
+            {company.layoffsAsOf && ` as of ${new Date(company.layoffsAsOf).toLocaleDateString()}`}.
+          </p>
+          <p className="text-xs text-[rgb(var(--muted-foreground))]">
+            Informational only — backward-looking signals like layoffs aren&apos;t reliable
+            predictors of future job security, so they don&apos;t affect comparison scores.
+          </p>
+        </section>
+      )}
+
+      <CompanyRefreshPanel
+        companyId={company.id}
+        ticker={company.tickerSymbol ?? null}
+        sentiments={company.sentiments.map((s) => ({
+          source: s.source,
+          score: s.score,
+          sampleSize: s.sampleSize,
+          summary: s.summary,
+          fetchedAt: s.fetchedAt.toISOString(),
+        }))}
+        priceCount={company.prices.length}
+        firstPriceDate={company.prices[0]?.date.toISOString() ?? null}
+        lastPriceDate={company.prices[company.prices.length - 1]?.date.toISOString() ?? null}
+        initialCurrentPrice={initialCurrentPrice}
+        initialCagr5y={initialCagr5y}
+        initialCagr1y={initialCagr1y}
+      />
+    </div>
+  );
+}
+
+function fmtRating(v: number | null | undefined): string {
+  return v == null ? '—' : `${v.toFixed(1)} ★`;
+}
+
+function fmtPct(v: number | null | undefined): string {
+  return v == null ? '—' : `${v}%`;
+}
+
+function hasGlassdoorBreakdown(c: {
+  glassdoorCompBenefits: number | null;
+  glassdoorWLB: number | null;
+  glassdoorCareerOpps: number | null;
+  glassdoorCulture: number | null;
+  glassdoorSrMgmt: number | null;
+  glassdoorRecommendPct: number | null;
+}): boolean {
+  return [
+    c.glassdoorCompBenefits, c.glassdoorWLB, c.glassdoorCareerOpps,
+    c.glassdoorCulture, c.glassdoorSrMgmt, c.glassdoorRecommendPct,
+  ].some((v) => v != null);
+}
+
+function hasIndeedBreakdown(c: {
+  indeedCompBenefits: number | null;
+  indeedWLB: number | null;
+  indeedJobSecurity: number | null;
+  indeedMgmt: number | null;
+  indeedCulture: number | null;
+}): boolean {
+  return [c.indeedCompBenefits, c.indeedWLB, c.indeedJobSecurity, c.indeedMgmt, c.indeedCulture].some(
+    (v) => v != null,
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wide text-[rgb(var(--muted-foreground))]">{label}</div>
+      <div className="font-semibold">{value}</div>
+    </div>
+  );
+}

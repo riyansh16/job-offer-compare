@@ -1,0 +1,187 @@
+'use client';
+
+import {
+  Legend,
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
+  ResponsiveContainer,
+  Tooltip,
+} from 'recharts';
+import { METRIC_KEYS, METRIC_LABELS, type ComparisonResult } from '@/lib/engine';
+import { formatMoney, formatPct } from '@/lib/utils';
+
+const COLORS = ['#4f46e5', '#10b981', '#ef4444', '#f59e0b', '#06b6d4', '#a855f7'];
+
+export function ComparisonResults({ snapshot }: { snapshot: ComparisonResult }) {
+  const ranked = [...snapshot.results].sort((a, b) => a.rank - b.rank);
+
+  // Detect snapshots saved before a metric-set change (e.g. PTO removed,
+  // 'reviews' split into 5 aspects). Filter to metrics every offer has data
+  // for; surface a banner so the user knows the data is incomplete.
+  const availableMetricKeys = METRIC_KEYS.filter((k) =>
+    ranked.every((r) => r.metrics?.[k] != null),
+  );
+  const isLegacySnapshot = availableMetricKeys.length < METRIC_KEYS.length;
+
+  // Radar data: rows = metrics, one series per offer.
+  const radarData = availableMetricKeys.map((k) => {
+    const row: Record<string, string | number> = { metric: METRIC_LABELS[k] };
+    for (const r of ranked) {
+      const m = r.metrics[k];
+      row[r.companyName] = m ? Number(m.normalized.toFixed(0)) : 0;
+    }
+    return row;
+  });
+
+  return (
+    <div className="space-y-6">
+      {isLegacySnapshot && (
+        <div className="card border-l-4 border-l-[rgb(var(--primary))] bg-[rgb(var(--primary))]/5">
+          <p className="text-sm">
+            <strong>Saved before a metric-set update.</strong> This comparison was created with an
+            older set of metrics (some are missing or have since been split). Showing what we can
+            from the snapshot — for an up-to-date scoring, re-run a new comparison with the same
+            offers.
+          </p>
+        </div>
+      )}      <section className="card space-y-3">
+        <h2 className="font-semibold">Verdict</h2>
+        <ul className="space-y-1 text-sm">
+          {snapshot.rationale.map((r, i) => (
+            <li key={i}>• {r}</li>
+          ))}
+        </ul>
+        <ol className="grid gap-2 md:grid-cols-3">
+          {ranked.map((r, i) => (
+            <li
+              key={r.offerId}
+              className={`rounded-lg border p-3 ${i === 0 ? 'border-[rgb(var(--primary))]' : ''}`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">
+                  #{r.rank} {r.companyName}
+                </span>
+                <span className="text-sm">{r.totalScore.toFixed(1)}/100</span>
+              </div>
+              <div className="text-xs text-[rgb(var(--muted-foreground))]">
+                {r.title} ·{' '}
+                {formatMoney(
+                  r.totalAnnualValue * (r.fxToNative ?? 1),
+                  r.nativeCurrency ?? 'USD',
+                  { compact: true },
+                )}{' '}
+                effective annual
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className="card">
+        <h2 className="mb-3 font-semibold">Per-metric profile</h2>
+        <div className="h-96 w-full">
+          <ResponsiveContainer>
+            <RadarChart data={radarData}>
+              <PolarGrid />
+              <PolarAngleAxis dataKey="metric" tick={{ fontSize: 11 }} />
+              <PolarRadiusAxis angle={30} domain={[0, 100]} />
+              {ranked.map((r, i) => (
+                <Radar
+                  key={r.offerId}
+                  name={r.companyName}
+                  dataKey={r.companyName}
+                  stroke={COLORS[i % COLORS.length]}
+                  fill={COLORS[i % COLORS.length]}
+                  fillOpacity={0.25}
+                />
+              ))}
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Tooltip />
+            </RadarChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
+
+      <section className="card overflow-x-auto">
+        <h2 className="mb-3 font-semibold">Detailed breakdown</h2>
+        <p className="mb-3 text-xs text-[rgb(var(--muted-foreground))]">
+          Money values shown in each offer&apos;s native currency, as you entered them.
+          Each metric is normalized 0–100 across offers, then weighted to produce the total score.
+        </p>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b text-left">
+              <th className="py-2 pr-3">Metric</th>
+              <th className="py-2 pr-3 text-right">Weight</th>
+              {ranked.map((r) => (
+                <th key={r.offerId} className="py-2 px-3 text-right">
+                  <div>{r.companyName}</div>
+                  {r.nativeCurrency && r.nativeCurrency !== 'INR' && (
+                    <div className="text-[10px] font-normal text-[rgb(var(--muted-foreground))]">
+                      ({r.nativeCurrency})
+                    </div>
+                  )}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {availableMetricKeys.map((k) => (
+              <tr key={k} className="border-b last:border-0">
+                <td className="py-2 pr-3">{METRIC_LABELS[k]}</td>
+                <td className="py-2 pr-3 text-right">{formatPct(snapshot.weights[k] ?? 0, 0)}</td>
+                {ranked.map((r) => {
+                  const m = r.metrics[k];
+                  const isMoney = ['salary', 'bonus', 'equity', 'signOn', 'benefits'].includes(k);
+                  const isReview = k.startsWith('review');
+                  let display: string;
+                  let growthHint: string | null = null;
+                  if (isMoney) {
+                    // Convert engine-internal INR value back to the offer's native currency.
+                    const nativeAmount = (m.raw) * (r.fxToNative ?? 1);
+                    display = formatMoney(nativeAmount, r.nativeCurrency ?? 'INR', { compact: true });
+                    // For equity, surface the growth factor that was applied.
+                    if (k === 'equity' && r.equityGrowthAppliedPct != null && r.equityGrowthAppliedPct !== 0) {
+                      const sign = r.equityGrowthAppliedPct > 0 ? '+' : '';
+                      const sourceLabel =
+                        r.equityGrowthSource === 'override' ? 'manual'
+                        : r.equityGrowthSource === 'cagr' ? '5y CAGR'
+                        : '';
+                      growthHint = `× ${sign}${r.equityGrowthAppliedPct.toFixed(1)}% growth${sourceLabel ? ` (${sourceLabel})` : ''}`;
+                    }
+                  } else if (isReview) {
+                    // raw is 0..100 scale; show the underlying 0..5 star rating.
+                    display = `${(m.raw / 20).toFixed(1)} ★`;
+                  } else {
+                    display = m.raw.toFixed(0);
+                  }
+                  return (
+                    <td key={r.offerId} className="py-2 px-3 text-right">
+                      <div>{display}</div>
+                      {growthHint && (
+                        <div className="text-[10px] text-[rgb(var(--primary))]">{growthHint}</div>
+                      )}
+                      <div className="text-[10px] text-[rgb(var(--muted-foreground))]">
+                        score {m.normalized.toFixed(0)} · contrib {m.weighted.toFixed(1)}
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+            <tr className="font-semibold">
+              <td className="py-2 pr-3">Total score</td>
+              <td className="py-2 pr-3 text-right">100</td>
+              {ranked.map((r) => (
+                <td key={r.offerId} className="py-2 px-3 text-right">{r.totalScore.toFixed(1)}</td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+  );
+}

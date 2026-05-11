@@ -1,0 +1,249 @@
+// Prisma schema for the Job Offer Comparison Portal.
+// Uses SQLite for local dev; switch to "postgresql" in production by changing
+// the datasource provider and DATABASE_URL. The schema is portable across both.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// NextAuth tables (Auth.js v5 with @auth/prisma-adapter)
+// ---------------------------------------------------------------------------
+
+model User {
+  id             String    @id @default(cuid())
+  name           String?
+  email          String    @unique
+  emailVerified  DateTime?
+  image          String?
+  hashedPassword String?   // null for OAuth-only users
+  createdAt      DateTime  @default(now())
+
+  accounts       Account[]
+  sessions       Session[]
+  offers         JobOffer[]
+  comparisons    Comparison[]
+  weightProfiles WeightProfile[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// Domain
+// ---------------------------------------------------------------------------
+
+model Company {
+  id                String   @id @default(cuid())
+  name              String
+  slug              String   @unique
+  website           String?
+  hqLocation        String?
+  size              String?  // e.g. "10000+", "1001-5000"
+  industry          String?
+  redditQuery       String?  // optional override for Reddit search
+  tickerSymbol      String?
+  isPublic          Boolean  @default(false)
+
+  // Manually entered ratings from public review sites (user enters with source URL).
+  // Overall (0-5).
+  glassdoorRating   Float?
+  glassdoorUrl      String?
+  indeedRating      Float?
+  indeedUrl         String?
+  blindRating       Float?
+  blindUrl          String?
+
+  // Glassdoor sub-ratings (0-5 each).
+  glassdoorCompBenefits  Float?
+  glassdoorWLB           Float?
+  glassdoorCareerOpps    Float?
+  glassdoorCulture       Float?
+  glassdoorSrMgmt        Float?
+  // Glassdoor recommend % (0-100) — most predictive single number per HBR research.
+  glassdoorRecommendPct  Int?
+  glassdoorCeoApprovalPct Int?
+  glassdoorReviewCount   Int?
+
+  // Indeed sub-ratings (0-5 each).
+  indeedCompBenefits     Float?
+  indeedWLB              Float?
+  indeedJobSecurity      Float?
+  indeedMgmt             Float?
+  indeedCulture          Float?
+  indeedReviewCount      Int?
+
+  blindReviewCount       Int?
+
+  // Layoffs.fyi-derived signal: percentage of headcount laid off in last 12 months.
+  layoffsLast12mPct      Float?
+  layoffsAsOf            DateTime?
+
+  ratingsUpdatedAt  DateTime?
+  // Tracks every refresh attempt (success or fail). Used by the batch refresher
+  // to pick the stalest companies in oldest-first order without endlessly
+  // retrying companies whose fetch keeps failing.
+  lastFetchAttemptAt DateTime?
+
+  createdAt         DateTime @default(now())
+
+  offers            JobOffer[]
+  sentiments        ReviewSentiment[]
+  prices            StockPriceHistory[]
+}
+
+model JobOffer {
+  id           String   @id @default(cuid())
+  userId       String
+  companyId    String
+  title        String
+  level        String?
+  location     String   // city, used for COL adjustment
+  isCurrent    Boolean  @default(false)
+  status       String   @default("Active") // Active | Archived | Accepted | Rejected
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company      Company      @relation(fields: [companyId], references: [id])
+  compensation Compensation?
+
+  @@index([userId])
+}
+
+// 1:1 with JobOffer. Stored separately for clarity and to allow versioning later.
+model Compensation {
+  id                  String   @id @default(cuid())
+  offerId             String   @unique
+  baseSalary          Float
+  currency            String   @default("INR")
+  targetBonusPct      Float    @default(0)
+  signOnBonus         Float    @default(0)
+  equityTotal         Float    @default(0)   // total grant value at target price (USD)
+  // Vesting schedule as JSON: { years: 4, cliffMonths: 12, cadence: "monthly"|"quarterly"|"annual",
+  //                              backloaded: false, customSchedule?: number[] (% per year) }
+  equityVestSchedule  String   @default("{\"years\":4,\"cliffMonths\":12,\"cadence\":\"quarterly\",\"backloaded\":false}")
+  benefitsValueAnnual Float    @default(0)   // annualized $ value of health/401k match/etc.
+  ptoDays             Int      @default(0)
+  workMode            String   @default("Onsite") // Remote | Hybrid | Onsite
+  commuteCostMonthly  Float    @default(0)
+  qualitativeScore    Int      @default(50)  // 0-100, user-supplied "growth/fit"
+  validUntil          DateTime?
+
+  offer JobOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+}
+
+// Weight profile -> 100-point distribution across the 10 metrics.
+// userId null => system preset (visible to all).
+model WeightProfile {
+  id        String   @id @default(cuid())
+  userId    String?
+  name      String
+  isPreset  Boolean  @default(false)
+  // Weights as JSON: { salary, bonus, equity, signOn, benefits, pto, workMode, colAdjusted, growth, reviews }
+  weights   String
+  createdAt DateTime @default(now())
+
+  user        User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comparisons Comparison[]
+
+  @@index([userId])
+}
+
+model Comparison {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  profileId   String?
+  // JSON snapshot: { offers: [...computed values...], weights: {...}, results: [...] }
+  snapshotJson String
+  // Equity-growth assumption used (per-comparison override).
+  equityGrowthPct Float @default(0)
+  // CSV of offer IDs in display order.
+  offerIdsCsv String
+  createdAt   DateTime @default(now())
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile  WeightProfile? @relation(fields: [profileId], references: [id])
+  insights AiInsight[]
+
+  @@index([userId])
+}
+
+model ReviewSentiment {
+  id         String   @id @default(cuid())
+  companyId  String
+  source     String   // Reddit | HackerNews | Manual
+  score      Float    // -1..1
+  sampleSize Int
+  summary    String   // brief aggregated text
+  fetchedAt  DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, source])
+}
+
+model StockPriceHistory {
+  id        String   @id @default(cuid())
+  companyId String
+  date      DateTime
+  closeUsd  Float
+  source    String   @default("YahooFinance")
+  fetchedAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, date])
+  @@index([companyId])
+}
+
+model AiInsight {
+  id           String   @id @default(cuid())
+  comparisonId String
+  kind         String   // Verdict | Tradeoffs | Negotiation | Questions
+  content      String
+  model        String
+  generatedAt  DateTime @default(now())
+
+  comparison Comparison @relation(fields: [comparisonId], references: [id], onDelete: Cascade)
+
+  @@index([comparisonId, kind])
+}

@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 250 250 250;
+  --foreground: 24 24 27;
+  --card: 255 255 255;
+  --border: 228 228 231;
+  --primary: 79 70 229;
+  --primary-foreground: 255 255 255;
+  --muted: 244 244 245;
+  --muted-foreground: 113 113 122;
+  --success: 22 163 74;
+  --danger: 220 38 38;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: 9 9 11;
+    --foreground: 244 244 245;
+    --card: 24 24 27;
+    --border: 39 39 42;
+    --muted: 39 39 42;
+    --muted-foreground: 161 161 170;
+  }
+}
+
+* {
+  border-color: rgb(var(--border));
+}
+
+body {
+  color: rgb(var(--foreground));
+  background: rgb(var(--background));
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border bg-[rgb(var(--card))] p-6 shadow-sm;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md border border-transparent px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] hover:opacity-90;
+  }
+  .btn-outline {
+    @apply btn border-[rgb(var(--border))] hover:bg-[rgb(var(--muted))];
+  }
+  .btn-ghost {
+    @apply btn hover:bg-[rgb(var(--muted))];
+  }
+  .btn-danger {
+    @apply btn bg-[rgb(var(--danger))] text-white hover:opacity-90;
+  }
+  .input {
+    @apply w-full rounded-md border bg-[rgb(var(--card))] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[rgb(var(--primary))];
+  }
+  .label {
+    @apply mb-1 block text-sm font-medium text-[rgb(var(--foreground))];
+  }
+  .badge {
+    @apply inline-flex items-center rounded-full bg-[rgb(var(--muted))] px-2.5 py-0.5 text-xs font-medium text-[rgb(var(--muted-foreground))];
+  }
+}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
