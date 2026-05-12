@@ -79,7 +79,7 @@ export async function refreshCompanySentiment(companyId: string, force = false) 
  *
  * adjusted = (rating * count + globalMean * priorStrength) / (count + priorStrength)
  *
- * Defaults: globalMean = 3.7 (typical Glassdoor average), priorStrength = 100.
+ * Defaults: globalMean = 3.7 (typical Indeed average), priorStrength = 100.
  */
 export function bayesianShrink(
   rating: number,
@@ -96,14 +96,6 @@ export function bayesianShrink(
  * Sub-rating set captured from public sources. All 0..5 (or 0..100 for percentages).
  */
 export interface CompanyRatings {
-  glassdoorRating?: number | null;
-  glassdoorCompBenefits?: number | null;
-  glassdoorWLB?: number | null;
-  glassdoorCulture?: number | null;
-  glassdoorSrMgmt?: number | null;
-  glassdoorRecommendPct?: number | null; // 0-100
-  glassdoorCeoApprovalPct?: number | null; // 0-100
-  glassdoorReviewCount?: number | null;
   indeedRating?: number | null;
   indeedCompBenefits?: number | null;
   indeedWLB?: number | null;
@@ -111,9 +103,6 @@ export interface CompanyRatings {
   indeedMgmt?: number | null;
   indeedCulture?: number | null;
   indeedReviewCount?: number | null;
-  blindRating?: number | null;
-  blindReviewCount?: number | null;
-  layoffsLast12mPct?: number | null;
   sentiments?: { score: number; sampleSize?: number }[];
 }
 
@@ -122,7 +111,7 @@ export interface CompanyRatings {
  * in `presets.ts`, this lets the Reviews metric be dimension-aware: a Work-life
  * profile up-weights the WLB sub-rating, etc.
  *
- * Each aspect is a 0..5 facet pulled from Glassdoor + Indeed sub-ratings.
+ * Each aspect is a 0..5 facet pulled from Indeed sub-ratings.
  */
 export interface RatingAspects {
   overall: number;
@@ -130,14 +119,8 @@ export interface RatingAspects {
   wlb: number;
   culture: number;
   mgmt: number;
+  jobSecurityAndAdvancement: number;
   recommendPct: number; // mapped to 0..5 from 0..100
-}
-
-/** Average a set of values, ignoring nulls. Returns null if all values are null. */
-function avgOrNull(values: Array<number | null | undefined>): number | null {
-  const nums = values.filter((v): v is number => v != null && Number.isFinite(v) && v > 0);
-  if (nums.length === 0) return null;
-  return nums.reduce((a, b) => a + b, 0) / nums.length;
 }
 
 /**
@@ -149,26 +132,21 @@ function avgOrNull(values: Array<number | null | undefined>): number | null {
  *  3. Blend in Reddit/HN sentiment with weight 0.15 (capped influence so a
  *     spike in trolling doesn't dominate established review data).
  *
- * Note: layoffs are surfaced on the company page as informational signal but
- * are NOT factored into the score — they're noisy and backward-looking.
+ * Note: layoff data is surfaced separately (company page + comparison page
+ * header) but is NOT factored into scoring — it's backward-looking and noisy.
  *
- * Indeed-only: Glassdoor data was deprecated as a primary source because
- * grounded-search extraction succeeds for ~5% of companies vs ~22% for Indeed,
- * and Indeed has stronger India coverage. Glassdoor fields remain in the
- * schema for backward compatibility but are no longer read here.
+ * Indeed-only: Glassdoor was deprecated as a source because grounded-search
+ * extraction succeeds for ~5% of companies vs ~22% for Indeed, and Indeed has
+ * stronger India coverage. No Glassdoor fields are read here.
  */
 export function computeRatingAspects(c: CompanyRatings): RatingAspects | null {
   const iCount = c.indeedReviewCount ?? 0;
-  const bCount = c.blindReviewCount ?? 0;
 
   const shrink = (r: number | null | undefined, n: number) =>
     r == null ? null : bayesianShrink(r, n);
 
-  // Overall: Indeed primary, Blind as a secondary signal when present.
-  const overall = avgOrNull([
-    shrink(c.indeedRating, iCount),
-    shrink(c.blindRating, bCount),
-  ]);
+  // Overall: Indeed is the sole source.
+  const overall = shrink(c.indeedRating, iCount);
 
   // Sentiment: -1..1 mapped to 1..5 stars. Average across active sources.
   const sentimentScores = (c.sentiments ?? [])
@@ -188,11 +166,13 @@ export function computeRatingAspects(c: CompanyRatings): RatingAspects | null {
   const compBenefits = shrink(c.indeedCompBenefits, iCount) ?? baseOverall;
   const wlb = shrink(c.indeedWLB, iCount) ?? baseOverall;
   const culture = shrink(c.indeedCulture, iCount) ?? baseOverall;
-  // Management blends Indeed Management + Job Security (proxy signals).
-  const mgmt = avgOrNull([
-    shrink(c.indeedMgmt, iCount),
-    shrink(c.indeedJobSecurity, iCount),
-  ]) ?? baseOverall;
+  // Management and Job Security & Advancement are tracked as separate aspects
+  // so users can weight them independently (e.g. "I care about good managers
+  // but my industry is volatile" vs "I want maximum stability and upward
+  // mobility regardless of management style"). The job-security aspect maps
+  // directly to Indeed's "Job Security & Advancement" sub-rating.
+  const mgmt = shrink(c.indeedMgmt, iCount) ?? baseOverall;
+  const jobSecurityAndAdvancement = shrink(c.indeedJobSecurity, iCount) ?? baseOverall;
   const recommendPct = baseOverall;
 
   // Blend sentiment in with weight 0.15 across all aspects (small but non-zero).
@@ -207,6 +187,7 @@ export function computeRatingAspects(c: CompanyRatings): RatingAspects | null {
     wlb: finalize(wlb),
     culture: finalize(culture),
     mgmt: finalize(mgmt),
+    jobSecurityAndAdvancement: finalize(jobSecurityAndAdvancement),
     recommendPct: finalize(recommendPct),
   };
 }
@@ -224,19 +205,11 @@ export const DEFAULT_ASPECT_WEIGHTS: RatingAspectWeights = {
   mgmt: 0.05,
 };
 
-/** Apply a layoff penalty to a 0..5 rating: 1% of headcount = -0.025 stars. */
-function applyLayoffPenalty(rating: number, layoffsPct: number | null | undefined): number {
-  if (!layoffsPct || layoffsPct <= 0) return rating;
-  const penalty = Math.min(1.5, layoffsPct * 0.025);
-  return Math.max(0, rating - penalty);
-}
-
 /**
  * Compute a 0..5 composite review score using:
- *  - Sub-rating breakdown (Glassdoor + Indeed facets)
+ *  - Sub-rating breakdown (Indeed facets)
  *  - Bayesian shrinkage by review count (built into `computeRatingAspects`)
  *  - Profile-aligned aspect weights (caller picks the right mix per profile)
- *  - Layoff penalty (-0.025 stars per 1% headcount cut in last 12 months)
  *  - Sentiment blend (0.7 facets / 0.3 sentiment if both exist)
  *
  * `aspectWeights` defaults to a balanced mix; pass profile-specific weights
@@ -273,9 +246,6 @@ export function blendedReviewScore(
   let blended: number;
   if (aspectBlend != null && sentAvg != null) blended = aspectBlend * 0.7 + sentAvg * 0.3;
   else blended = (aspectBlend ?? sentAvg) as number;
-
-  // Apply layoff penalty after blending so it affects every component fairly.
-  blended = applyLayoffPenalty(blended, input.layoffsLast12mPct);
 
   return Number(blended.toFixed(2));
 }

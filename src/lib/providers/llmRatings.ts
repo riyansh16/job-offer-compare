@@ -33,7 +33,14 @@ export interface LlmRatingResult {
   notFound: boolean;
 }
 
-const MODEL_ID = 'gemini-2.5-flash-lite';
+// Default to flash-lite (fastest, smallest); override with GEMINI_RATINGS_MODEL
+// env var when its daily quota is exhausted (each model has a separate 20 RPD
+// bucket on the free tier). Tried-and-tested options:
+//   - gemini-2.5-flash-lite (default, fast)
+//   - gemini-2.5-flash      (smarter, slower)
+//   - gemini-2.5-pro        (smartest, ~50 RPD on free tier)
+//   - gemini-2.0-flash      (older, separate quota)
+const MODEL_ID = process.env.GEMINI_RATINGS_MODEL ?? 'gemini-2.5-flash-lite';
 
 const SYSTEM_PROMPT = `You are a precise data extractor.
 Given a company name, you search the web for its current Indeed (indeed.com) ratings
@@ -100,23 +107,42 @@ Make sure indeedUrl is the exact Indeed company-overview page (e.g. /cmp/Company
 
   const ai = new GoogleGenAI({ apiKey });
 
+  // Single retry on 429 (rate limit). The error payload includes a
+  // server-suggested retryDelay (e.g. "36s"); we honor it (capped at 60s) so
+  // a brief per-minute window pause doesn't burn an attempt slot. Daily-quota
+  // 429s also come back with a delay but it's effectively hours — we cap at
+  // 60s and let the caller treat the second 429 as a hard fail.
   let response;
-  try {
-    response = await ai.models.generateContent({
-      model: MODEL_ID,
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: {
-        systemInstruction: SYSTEM_PROMPT,
-        // Grounding via Google Search — gets us cached Glassdoor/Indeed snippets.
-        tools: [{ googleSearch: {} }],
-        // Low temperature: we want extraction, not creativity.
-        temperature: 0.1,
-      },
-    });
-  } catch (err) {
-    console.warn(`[llmRatings] Gemini call failed for "${companyName}":`, err);
-    return null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      response = await ai.models.generateContent({
+        model: MODEL_ID,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          systemInstruction: SYSTEM_PROMPT,
+          // Grounding via Google Search — gets us cached Indeed snippets.
+          tools: [{ googleSearch: {} }],
+          // Low temperature: we want extraction, not creativity.
+          temperature: 0.1,
+        },
+      });
+      break;
+    } catch (err) {
+      const status = (err as { status?: number })?.status;
+      const delayMs = status === 429 ? extractRetryDelayMs(err) : 0;
+      const canRetry = status === 429 && delayMs > 0 && delayMs <= 60_000 && attempt === 0;
+      if (canRetry) {
+        console.warn(
+          `[llmRatings] 429 for "${companyName}"; retrying in ${(delayMs / 1000).toFixed(1)}s`,
+        );
+        await new Promise((r) => setTimeout(r, delayMs + 250));
+        continue;
+      }
+      console.warn(`[llmRatings] Gemini call failed for "${companyName}":`, err);
+      return null;
+    }
   }
+  if (!response) return null;
 
   const text = response.text ?? '';
   const candidate = response.candidates?.[0];
@@ -254,4 +280,21 @@ function extractJson(
     }
   }
   return null;
+}
+
+/**
+ * Pull the server-suggested `retryDelay` out of a Gemini 429 ApiError.
+ * The error body is a JSON string with shape:
+ *   { error: { details: [ ..., { @type: "...RetryInfo", retryDelay: "36s" } ] } }
+ * Returns 0 if not present or unparseable.
+ */
+function extractRetryDelayMs(err: unknown): number {
+  const message = (err as { message?: string })?.message;
+  if (!message) return 0;
+  // Cheap path: regex the duration string out without parsing the whole body.
+  const m = message.match(/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/);
+  if (!m) return 0;
+  const seconds = parseFloat(m[1]);
+  if (!Number.isFinite(seconds) || seconds <= 0) return 0;
+  return Math.ceil(seconds * 1000);
 }

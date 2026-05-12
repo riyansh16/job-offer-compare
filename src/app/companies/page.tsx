@@ -27,9 +27,7 @@ export default async function CompaniesIndexPage() {
                 {[c.industry, c.size, c.hqLocation].filter(Boolean).join(' · ')}
               </div>
               <div className="mt-2 flex gap-2 text-xs">
-                {c.glassdoorRating != null && <span className="badge">Glassdoor {c.glassdoorRating}</span>}
                 {c.indeedRating != null && <span className="badge">Indeed {c.indeedRating}</span>}
-                {c.blindRating != null && <span className="badge">Blind {c.blindRating}</span>}
                 {c.tickerSymbol && <span className="badge">{c.tickerSymbol}</span>}
               </div>
             </Link>

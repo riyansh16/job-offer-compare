@@ -45,36 +45,12 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
         <Stat label="HQ" value={company.hqLocation ?? '—'} />
         <Stat label="Size" value={company.size ?? '—'} />
         <Stat label="Status" value={company.isPublic ? `Public · ${company.tickerSymbol ?? ''}` : 'Private'} />
-        <Stat label="Glassdoor" value={company.glassdoorRating ? `${company.glassdoorRating.toFixed(1)} ★` : '—'} />
         <Stat label="Indeed" value={company.indeedRating ? `${company.indeedRating.toFixed(1)} ★` : '—'} />
-        <Stat label="Blind" value={company.blindRating ? `${company.blindRating.toFixed(1)} ★` : '—'} />
         <Stat
           label="Ratings updated"
           value={company.ratingsUpdatedAt ? new Date(company.ratingsUpdatedAt).toLocaleDateString() : '—'}
         />
       </section>
-
-      {hasGlassdoorBreakdown(company) && (
-        <section className="card space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold">Glassdoor breakdown</h2>
-            {company.glassdoorReviewCount != null && (
-              <span className="text-xs text-[rgb(var(--muted-foreground))]">
-                {company.glassdoorReviewCount.toLocaleString()} reviews
-              </span>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 text-sm">
-            <Stat label="Comp & Benefits" value={fmtRating(company.glassdoorCompBenefits)} />
-            <Stat label="Work-Life Balance" value={fmtRating(company.glassdoorWLB)} />
-            <Stat label="Career Opportunities" value={fmtRating(company.glassdoorCareerOpps)} />
-            <Stat label="Culture & Values" value={fmtRating(company.glassdoorCulture)} />
-            <Stat label="Senior Management" value={fmtRating(company.glassdoorSrMgmt)} />
-            <Stat label="Recommend to friend" value={fmtPct(company.glassdoorRecommendPct)} />
-            <Stat label="CEO approval" value={fmtPct(company.glassdoorCeoApprovalPct)} />
-          </div>
-        </section>
-      )}
 
       {hasIndeedBreakdown(company) && (
         <section className="card space-y-3">
@@ -104,10 +80,28 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
             of headcount cut
             {company.layoffsAsOf && ` as of ${new Date(company.layoffsAsOf).toLocaleDateString()}`}.
           </p>
-          <p className="text-xs text-[rgb(var(--muted-foreground))]">
-            Informational only — backward-looking signals like layoffs aren&apos;t reliable
-            predictors of future job security, so they don&apos;t affect comparison scores.
-          </p>
+          {company.layoffsSourceUrl && (
+            <p className="text-xs">
+              Source:{' '}
+              <a
+                href={company.layoffsSourceUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[rgb(var(--primary))] underline"
+              >
+                {new URL(company.layoffsSourceUrl).hostname}
+              </a>
+              {' '}· aggregated via{' '}
+              <a
+                href="https://layoffs.fyi/"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[rgb(var(--primary))] underline"
+              >
+                layoffs.fyi
+              </a>
+            </p>
+          )}
         </section>
       )}
 
@@ -134,24 +128,6 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
 
 function fmtRating(v: number | null | undefined): string {
   return v == null ? '—' : `${v.toFixed(1)} ★`;
-}
-
-function fmtPct(v: number | null | undefined): string {
-  return v == null ? '—' : `${v}%`;
-}
-
-function hasGlassdoorBreakdown(c: {
-  glassdoorCompBenefits: number | null;
-  glassdoorWLB: number | null;
-  glassdoorCareerOpps: number | null;
-  glassdoorCulture: number | null;
-  glassdoorSrMgmt: number | null;
-  glassdoorRecommendPct: number | null;
-}): boolean {
-  return [
-    c.glassdoorCompBenefits, c.glassdoorWLB, c.glassdoorCareerOpps,
-    c.glassdoorCulture, c.glassdoorSrMgmt, c.glassdoorRecommendPct,
-  ].some((v) => v != null);
 }
 
 function hasIndeedBreakdown(c: {

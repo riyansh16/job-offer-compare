@@ -17,6 +17,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:refresh-ratings": "tsx --env-file=.env.local scripts/refreshRatings.ts",
+    "db:refresh-layoffs": "tsx --env-file=.env.local scripts/refreshLayoffs.ts",
     "db:studio": "prisma studio"
   },
   "prisma": {

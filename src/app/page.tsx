@@ -34,7 +34,7 @@ export default async function Home() {
           {
             title: 'Reviews that won\u2019t mislead',
             body:
-              'Glassdoor + Indeed ratings fetched live with source URLs, blended with Reddit & HN sentiment. Bayesian shrinkage so 6 cherry-picked reviews can\u2019t outscore 80,000 honest ones.',
+              'Indeed ratings fetched live with source URLs, blended with Reddit & HN sentiment. Bayesian shrinkage so 6 cherry-picked reviews can’t outscore 80,000 honest ones.',
           },
           {
             title: 'AI that cites the numbers',

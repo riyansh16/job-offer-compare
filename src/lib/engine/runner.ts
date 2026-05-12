@@ -131,14 +131,6 @@ export async function runComparisonForOffers(
     const c = o.compensation!;
     // Per-aspect review scores (0..5), Bayesian-shrunk by review counts.
     const aspects = computeRatingAspects({
-      glassdoorRating: o.company.glassdoorRating,
-      glassdoorCompBenefits: o.company.glassdoorCompBenefits,
-      glassdoorWLB: o.company.glassdoorWLB,
-      glassdoorCulture: o.company.glassdoorCulture,
-      glassdoorSrMgmt: o.company.glassdoorSrMgmt,
-      glassdoorRecommendPct: o.company.glassdoorRecommendPct,
-      glassdoorCeoApprovalPct: o.company.glassdoorCeoApprovalPct,
-      glassdoorReviewCount: o.company.glassdoorReviewCount,
       indeedRating: o.company.indeedRating,
       indeedCompBenefits: o.company.indeedCompBenefits,
       indeedWLB: o.company.indeedWLB,
@@ -146,9 +138,6 @@ export async function runComparisonForOffers(
       indeedMgmt: o.company.indeedMgmt,
       indeedCulture: o.company.indeedCulture,
       indeedReviewCount: o.company.indeedReviewCount,
-      blindRating: o.company.blindRating,
-      blindReviewCount: o.company.blindReviewCount,
-      layoffsLast12mPct: o.company.layoffsLast12mPct,
       sentiments: o.company.sentiments,
     });
     let vest: VestScheduleJson;
@@ -190,6 +179,7 @@ export async function runComparisonForOffers(
             wlb: aspects.wlb,
             culture: aspects.culture,
             mgmt: aspects.mgmt,
+            jobSecurityAndAdvancement: aspects.jobSecurityAndAdvancement,
           }
         : undefined,
       compensation: {

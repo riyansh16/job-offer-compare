@@ -67,7 +67,7 @@ These are deliberately excluded:
 
 - **Cost-of-living adjustment between Indian cities.** A rupee in Mumbai and a rupee in Pune buy meaningfully different things, but the indices required to do this honestly (Numbeo etc.) aren't reliable enough to bake into scoring. v2.
 - **International COL / FX.** Same reason. The app is INR-only by default; non-INR offers get FX conversion but no purchasing-power adjustment.
-- **Glassdoor / AmbitionBox / Blind ratings.** Glassdoor is behind aggressive Cloudflare protection (~5% extraction success); we use Indeed as the single source of truth. Schema for Glassdoor fields kept for backward compat but not refreshed.
+- **Glassdoor / AmbitionBox / Blind ratings.** Glassdoor is behind aggressive Cloudflare protection (~5% extraction success); Indeed is our single source of truth. Other platforms add operational complexity without proportional coverage gains.
 - **"Career Opportunities" as a separate metric.** Indeed bundles this into "Job security/advancement"; Glassdoor measured it separately but we don't use Glassdoor anymore. Rather than fake a number from the overall rating, we dropped the metric.
 - **"Recommend %" and CEO approval %.** Highly correlated with overall rating already — weighting them again is double-counting.
 

@@ -6,12 +6,6 @@ import { prisma } from '../src/lib/db';
 
 async function main() {
   const total = await prisma.company.count();
-  const withGlassdoor = await prisma.company.count({
-    where: { glassdoorRating: { not: null } },
-  });
-  const withGlassdoorUrl = await prisma.company.count({
-    where: { glassdoorUrl: { not: null } },
-  });
   const withIndeed = await prisma.company.count({
     where: { indeedRating: { not: null } },
   });
@@ -28,20 +22,18 @@ async function main() {
     where: { ratingsUpdatedAt: { gt: new Date(Date.now() - 24 * 3600 * 1000) } },
   });
   const neverAttempted = total - everAttempted;
-  // Legacy: has rating from old seed but no source URL.
+  // Legacy: has rating but no source URL (would indicate corruption — should be 0).
   const legacy = await prisma.company.count({
-    where: { AND: [{ glassdoorRating: { not: null } }, { glassdoorUrl: null }] },
+    where: { AND: [{ indeedRating: { not: null } }, { indeedUrl: null }] },
   });
 
   console.log(`Total companies:           ${total}`);
   console.log(`Updated in last 24h:       ${fresh24h}  <- real fetches today`);
-  console.log(`Got Glassdoor + URL:       ${withGlassdoorUrl}`);
   console.log(`Got Indeed + URL:          ${withIndeedUrl}`);
-  console.log(`Has rating, no URL:        ${legacy}  <- legacy fake seed values`);
+  console.log(`Has rating, no URL:        ${legacy}  <- should be 0 (anti-hallucination guard)`);
   console.log(`Got data ever:             ${everUpdated}`);
   console.log(`Attempted ever:            ${everAttempted}`);
   console.log(`Never attempted:           ${neverAttempted}`);
-  console.log(`(raw) glassdoorRating:     ${withGlassdoor}`);
   console.log(`(raw) indeedRating:        ${withIndeed}`);
 }
 

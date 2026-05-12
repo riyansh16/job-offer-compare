@@ -84,23 +84,9 @@ model Company {
 
   // Manually entered ratings from public review sites (user enters with source URL).
   // Overall (0-5).
-  glassdoorRating   Float?
-  glassdoorUrl      String?
+  // Indeed is the only fetched source (see src/lib/providers/llmRatings.ts).
   indeedRating      Float?
   indeedUrl         String?
-  blindRating       Float?
-  blindUrl          String?
-
-  // Glassdoor sub-ratings (0-5 each).
-  glassdoorCompBenefits  Float?
-  glassdoorWLB           Float?
-  glassdoorCareerOpps    Float?
-  glassdoorCulture       Float?
-  glassdoorSrMgmt        Float?
-  // Glassdoor recommend % (0-100) — most predictive single number per HBR research.
-  glassdoorRecommendPct  Int?
-  glassdoorCeoApprovalPct Int?
-  glassdoorReviewCount   Int?
 
   // Indeed sub-ratings (0-5 each).
   indeedCompBenefits     Float?
@@ -110,11 +96,14 @@ model Company {
   indeedCulture          Float?
   indeedReviewCount      Int?
 
-  blindReviewCount       Int?
-
   // Layoffs.fyi-derived signal: percentage of headcount laid off in last 12 months.
+  // Informational only — NOT factored into scoring (backward-looking, noisy).
+  // Shown on the company page and at the top of comparison results.
+  // Refreshed monthly via scripts/refreshLayoffs.ts.
   layoffsLast12mPct      Float?
   layoffsAsOf            DateTime?
+  layoffsSourceUrl       String?
+  layoffsUpdatedAt       DateTime?
 
   ratingsUpdatedAt  DateTime?
   // Tracks every refresh attempt (success or fail). Used by the batch refresher

@@ -43,7 +43,7 @@ async function main() {
   // Seed a broad catalog of companies: big tech, mid-size, scale-ups, and startups.
   // tickerSymbol is set for publicly traded ones (enables historical CAGR auto-fill).
   //
-  // NOTE: Ratings are NOT seeded here. They are fetched live from Glassdoor +
+  // NOTE: Ratings are NOT seeded here. They are fetched live from Indeed +
   // Indeed via Gemini-grounded search. Run `npm run db:refresh-ratings` once
   // after seeding to populate, or rely on the daily cron via
   // /api/cron/refresh-ratings.
@@ -431,7 +431,7 @@ async function main() {
     });
   }
   console.log(`Upserted ${COMPANY_CATALOG.length} companies into the catalog.`);
-  console.log('Ratings (Glassdoor / Indeed) are NOT seeded. Run `npm run db:refresh-ratings`');
+  console.log('Ratings (Indeed) are NOT seeded. Run `npm run db:refresh-ratings`');
   console.log('after seeding to populate from live web search via Gemini.');
 
   // Resolve a few we'll attach demo offers to.
