@@ -29,7 +29,6 @@ export function AiInsightsPanel({ comparisonId }: { comparisonId: string }) {
     Negotiation: false,
     Questions: false,
   });
-  const [model, setModel] = useState<string | null>(null);
 
   // Auto-load Verdict on mount.
   useEffect(() => {
@@ -51,8 +50,6 @@ export function AiInsightsPanel({ comparisonId }: { comparisonId: string }) {
         setContent((c) => ({ ...c, [kind]: `[AI error: ${err?.error ?? res.statusText}]` }));
         return;
       }
-      const m = res.headers.get('X-Model');
-      if (m) setModel(m);
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buf = '';
@@ -84,7 +81,6 @@ export function AiInsightsPanel({ comparisonId }: { comparisonId: string }) {
     <section className="card space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold">AI insights</h2>
-        {model && <span className="text-xs text-[rgb(var(--muted-foreground))]">model: {model}</span>}
       </div>
 
       <div className="space-y-3">
