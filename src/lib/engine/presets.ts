@@ -20,6 +20,7 @@ export const PRESET_WEIGHTS: Record<string, Weights> = {
     reviewWLB: 3,
     reviewCulture: 2,
     reviewMgmt: 2,
+    reviewJobSecurityAndAdvancement: 2,
   },
   'Money-focused': {
     salary: 10,
@@ -33,6 +34,7 @@ export const PRESET_WEIGHTS: Record<string, Weights> = {
     reviewWLB: 0,
     reviewCulture: 0,
     reviewMgmt: 1,
+    reviewJobSecurityAndAdvancement: 1,
   },
   'Work-life balance': {
     salary: 5,
@@ -46,6 +48,7 @@ export const PRESET_WEIGHTS: Record<string, Weights> = {
     reviewWLB: 10,
     reviewCulture: 5,
     reviewMgmt: 3,
+    reviewJobSecurityAndAdvancement: 2,
   },
   'Career growth': {
     salary: 4,
@@ -59,6 +62,7 @@ export const PRESET_WEIGHTS: Record<string, Weights> = {
     reviewWLB: 1,
     reviewCulture: 2,
     reviewMgmt: 6,
+    reviewJobSecurityAndAdvancement: 7,
   },
 };
 

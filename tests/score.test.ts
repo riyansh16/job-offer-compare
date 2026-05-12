@@ -33,7 +33,7 @@ const makeOffer = (id: string, over: Partial<OfferInput> = {}): OfferInput => ({
   title: 'Senior Engineer',
   location: 'New York, NY',
   compensation: makeComp(),
-  reviewAspects: { compBenefits: 4, wlb: 4, culture: 4, mgmt: 4 },
+  reviewAspects: { compBenefits: 4, wlb: 4, culture: 4, mgmt: 4, jobSecurityAndAdvancement: 4 },
   ...over,
 });
 
@@ -106,6 +106,7 @@ describe('normalizeWeights', () => {
       reviewWLB: 0,
       reviewCulture: 0,
       reviewMgmt: 0,
+      reviewJobSecurityAndAdvancement: 0,
     };
     const norm = normalizeWeights(w);
     const sum = Object.values(norm).reduce((a, b) => a + b, 0);
@@ -117,10 +118,11 @@ describe('normalizeWeights', () => {
       salary: 0, bonus: 0, equity: 0, signOn: 0, benefits: 0,
       workMode: 0, growth: 0,
       reviewCompBenefits: 0, reviewWLB: 0, reviewCulture: 0, reviewMgmt: 0,
+      reviewJobSecurityAndAdvancement: 0,
     };
     const norm = normalizeWeights(w);
-    // 11 metrics now -> uniform fallback is 100/11 ≈ 9.09
-    expect(norm.salary).toBeCloseTo(100 / 11, 5);
+    // 12 metrics now -> uniform fallback is 100/12 ≈ 8.33
+    expect(norm.salary).toBeCloseTo(100 / 12, 5);
   });
 });
 

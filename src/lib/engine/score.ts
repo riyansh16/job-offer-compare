@@ -95,6 +95,7 @@ function rawMetricsFor(offer: OfferInput, opts: EngineOptions): RawMetricRow {
     reviewWLB: star(offer.reviewAspects?.wlb),
     reviewCulture: star(offer.reviewAspects?.culture),
     reviewMgmt: star(offer.reviewAspects?.mgmt),
+    reviewJobSecurityAndAdvancement: star(offer.reviewAspects?.jobSecurityAndAdvancement),
   } satisfies Record<MetricKey, number>;
 
   return {

@@ -53,6 +53,7 @@ export interface OfferInput {
     wlb?: number;
     culture?: number;
     mgmt?: number;
+    jobSecurityAndAdvancement?: number;
   };
 }
 
@@ -70,6 +71,7 @@ export interface Weights {
   reviewWLB: number;
   reviewCulture: number;
   reviewMgmt: number;
+  reviewJobSecurityAndAdvancement: number;
 }
 
 export type MetricKey = keyof Weights;
@@ -86,6 +88,7 @@ export const METRIC_KEYS: MetricKey[] = [
   'reviewWLB',
   'reviewCulture',
   'reviewMgmt',
+  'reviewJobSecurityAndAdvancement',
 ];
 
 export const METRIC_LABELS: Record<MetricKey, string> = {
@@ -100,6 +103,7 @@ export const METRIC_LABELS: Record<MetricKey, string> = {
   reviewWLB: 'Reviews · Work-Life Balance',
   reviewCulture: 'Reviews · Culture',
   reviewMgmt: 'Reviews · Management',
+  reviewJobSecurityAndAdvancement: 'Reviews · Job Security & Advancement',
 };
 
 export interface MetricBreakdown {
