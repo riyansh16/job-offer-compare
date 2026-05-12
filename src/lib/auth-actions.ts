@@ -12,6 +12,11 @@ const signupSchema = z.object({
 });
 
 export async function signupAction(formData: FormData) {
+  // Phase 2.4: email/password signup is dev-only. The form is hidden in prod,
+  // but enforce here too so a direct POST can't bypass the UI.
+  if (process.env.OPEN_SIGNUP !== 'true') {
+    return { error: 'Sign-up is disabled. Please continue with Google.' };
+  }
   const data = signupSchema.parse(Object.fromEntries(formData.entries()));
   const existing = await prisma.user.findUnique({ where: { email: data.email } });
   if (existing) {
