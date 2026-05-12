@@ -49,11 +49,11 @@ describe('annualizeBonus', () => {
 
 describe('amortizeSignOn', () => {
   it('counts the full sign-on amount in year 1', () => {
-    expect(amortizeSignOn(40_000, 4)).toBe(40_000);
+    expect(amortizeSignOn(40_000)).toBe(40_000);
   });
   it('returns 0 for zero or negative amounts', () => {
-    expect(amortizeSignOn(0, 4)).toBe(0);
-    expect(amortizeSignOn(-100, 4)).toBe(0);
+    expect(amortizeSignOn(0)).toBe(0);
+    expect(amortizeSignOn(-100)).toBe(0);
   });
 });
 

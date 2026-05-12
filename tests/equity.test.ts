@@ -52,17 +52,6 @@ describe('valueEquity', () => {
     expect(valueEquity(50_000)).toBe(50_000);
     expect(valueEquity(123_456.78)).toBe(123_456.78);
   });
-
-  it('ignores legacy schedule + growth args (back-compat signature)', () => {
-    // Old callers may still pass these; they must be ignored, not applied.
-    expect(
-      valueEquity(
-        50_000,
-        { years: 4, cliffMonths: 12, cadence: 'quarterly' },
-        { growthAssumptionPct: 25 },
-      ),
-    ).toBe(50_000);
-  });
 });
 
 describe('computeHistoricalCagr', () => {

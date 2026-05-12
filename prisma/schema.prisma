@@ -159,14 +159,16 @@ model Compensation {
   offer JobOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
 }
 
-// Weight profile -> 100-point distribution across the 10 metrics.
+// Weight profile -> 100-point distribution across the 12 metrics.
 // userId null => system preset (visible to all).
 model WeightProfile {
   id        String   @id @default(cuid())
   userId    String?
   name      String
   isPreset  Boolean  @default(false)
-  // Weights as JSON: { salary, bonus, equity, signOn, benefits, pto, workMode, colAdjusted, growth, reviews }
+  // Weights as JSON: { salary, bonus, equity, signOn, benefits, workMode, growth,
+  //                    reviewCompBenefits, reviewWLB, reviewCulture, reviewMgmt,
+  //                    reviewJobSecurityAndAdvancement }
   weights   String
   createdAt DateTime @default(now())
 

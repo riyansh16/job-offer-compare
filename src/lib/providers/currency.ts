@@ -44,26 +44,6 @@ async function fetchRates(base: string): Promise<CachedRates | null> {
   }
 }
 
-/**
- * Convert `amount` from `from` currency to `to` currency.
- * Returns the original amount if currencies match or if rates are unavailable.
- */
-export async function convertCurrency(
-  amount: number,
-  from: string,
-  to: string,
-): Promise<number> {
-  if (!Number.isFinite(amount) || amount === 0) return amount;
-  const f = (from || 'USD').toUpperCase();
-  const t = (to || 'USD').toUpperCase();
-  if (f === t) return amount;
-  const rates = await fetchRates(f);
-  if (!rates) return amount;
-  const r = rates.rates[t];
-  if (!r) return amount;
-  return amount * r;
-}
-
 /** Returns the FX rate from `from` to `to`, or null if unavailable. */
 export async function getRate(from: string, to: string): Promise<number | null> {
   const f = (from || 'USD').toUpperCase();

@@ -1,14 +1,3 @@
-import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-
-export function formatUsd(value: number, opts: { compact?: boolean } = {}): string {
-  return formatMoney(value, 'USD', opts);
-}
-
 /**
  * South Asian currencies that use the Lakh / Crore numbering convention.
  * 1 Lakh = 100,000  (1L = 1,00,000)
@@ -90,12 +79,4 @@ export function formatMoney(
 export function formatPct(value: number, fractionDigits = 1): string {
   if (!Number.isFinite(value)) return '—';
   return `${value.toFixed(fractionDigits)}%`;
-}
-
-export function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
 }

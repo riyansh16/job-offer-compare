@@ -164,15 +164,8 @@ export async function createComparison(args: {
   growthOverridesByCompany?: Record<string, number>;
 }) {
   const userId = await requireUserId();
-  // Look up the profile name so the engine can pick profile-aligned review-aspect weights.
-  let profileName: string | undefined;
-  if (args.profileId) {
-    const profile = await prisma.weightProfile.findUnique({ where: { id: args.profileId } });
-    profileName = profile?.name;
-  }
   const result = await runComparisonForOffers(userId, args.offerIds, args.weights, {
     equityGrowthPct: args.equityGrowthPct,
-    profileName,
     growthOverridesByCompany: args.growthOverridesByCompany,
   });
   const created = await prisma.comparison.create({

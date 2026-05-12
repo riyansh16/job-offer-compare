@@ -68,23 +68,3 @@ export const PRESET_WEIGHTS: Record<string, Weights> = {
 
 export const PRESET_NAMES = Object.keys(PRESET_WEIGHTS);
 
-/**
- * Profile-aligned mix kept for backwards compatibility, but with the metric-level
- * split it's now informational only — the user-facing weights drive the score.
- */
-export const PROFILE_RATING_WEIGHTS: Record<
-  string,
-  Partial<
-    Record<
-      'overall' | 'compBenefits' | 'wlb' | 'culture' | 'mgmt' | 'recommendPct',
-      number
-    >
-  >
-> = {
-  Balanced: { overall: 0.4, recommendPct: 0.2, wlb: 0.15, compBenefits: 0.15, culture: 0.05, mgmt: 0.05 },
-  'Money-focused': { compBenefits: 0.55, overall: 0.3, recommendPct: 0.15 },
-  'Work-life balance': { wlb: 0.5, culture: 0.2, recommendPct: 0.15, mgmt: 0.1, overall: 0.05 },
-  'Career growth': { mgmt: 0.4, overall: 0.3, recommendPct: 0.2, culture: 0.1 },
-};
-
-

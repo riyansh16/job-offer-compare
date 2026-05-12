@@ -14,10 +14,6 @@ import { refreshCompanySentiment } from '../providers/review';
 export interface RunComparisonOptions {
   /** @deprecated kept for snapshot compatibility; per-company CAGR is now used. */
   equityGrowthPct?: number;
-  signOnAmortYears?: number;
-  /** @deprecated profile name no longer affects review-aspect blending — the
-   *  Weights now drive everything per-aspect. */
-  profileName?: string;
   /** Per-company stock-growth % override. Wins over the cached CAGR when set. */
   growthOverridesByCompany?: Record<string, number>;
 }
@@ -120,9 +116,6 @@ export async function runComparisonForOffers(
       if (cagr != null && Number.isFinite(cagr)) cagrByCompany.set(cid, cagr);
     }),
   );
-
-  const aspectWeights = opts.profileName ? undefined : undefined; // unused now
-  void aspectWeights;
 
   // Track which growth assumption was applied to each offer so the UI can show it.
   const growthByOfferId = new Map<string, { pct: number; source: 'override' | 'cagr' | 'none' }>();

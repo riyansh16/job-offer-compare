@@ -20,8 +20,6 @@ const WORK_MODE_SCORE: Record<WorkMode, number> = {
 export interface EngineOptions {
   /** Annual share-price growth assumption applied to all offers' equity. */
   equityGrowthPct?: number;
-  /** Years to amortize sign-on bonus over. Default 4. */
-  signOnAmortYears?: number;
 }
 
 /** Annualize bonus = base * targetPct/100. */
@@ -34,7 +32,7 @@ export function annualizeBonus(base: number, targetPct: number): number {
  *  but that consistently confused users (₹4L sign-on showing as ₹1L). The
  *  trade-off: an offer with a big sign-on looks better year 1 than years 2-4.
  *  Document this in the UI rather than hide it via amortization. */
-export function amortizeSignOn(amount: number, _years: number): number {
+export function amortizeSignOn(amount: number): number {
   if (amount <= 0) return 0;
   return amount;
 }
@@ -58,7 +56,7 @@ export function totalAnnualValue(
 ): number {
   // equityTotal field is interpreted as "$ vesting per year" (see equity.ts).
   const equity = valueEquity(comp.equityTotal);
-  const signOn = amortizeSignOn(comp.signOnBonus, opts.signOnAmortYears ?? 4);
+  const signOn = amortizeSignOn(comp.signOnBonus);
   const bonus = annualizeBonus(comp.baseSalary, comp.targetBonusPct);
   const commute = commuteCostAnnual(comp.commuteCostMonthly, comp.workMode);
   return comp.baseSalary + bonus + equity + signOn + comp.benefitsValueAnnual - commute;
@@ -74,7 +72,7 @@ function rawMetricsFor(offer: OfferInput, opts: EngineOptions): RawMetricRow {
   const c = offer.compensation;
   const bonus = annualizeBonus(c.baseSalary, c.targetBonusPct);
   const equity = valueEquity(c.equityTotal);
-  const signOn = amortizeSignOn(c.signOnBonus, opts.signOnAmortYears ?? 4);
+  const signOn = amortizeSignOn(c.signOnBonus);
 
   // Round star ratings to 0.1 ★ precision (= 2 points on 0..100) so two
   // companies that *display* the same star rating also *score* the same.
