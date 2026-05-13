@@ -71,6 +71,21 @@ type CallOutcome =
   | { ok: false; reason: typeof QUOTA_EXHAUSTED | 'failed' };
 
 /**
+ * Thrown when fetchLlmRatings could not make a single Gemini call because
+ * either (a) no API keys are configured, or (b) every configured key has
+ * exhausted its daily quota for this process. The caller (batch processor)
+ * must NOT stamp lastFetchAttemptAt for the company — we never actually
+ * tried, so the company should remain in the "never attempted" bucket and
+ * be picked up by the next run after the daily quota resets.
+ */
+export class GeminiQuotaExhaustedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'GeminiQuotaExhaustedError';
+  }
+}
+
+/**
  * One attempt against one API key, with the per-minute 429 retry kept inline.
  * Returns:
  *   - { ok: true }                                  → success
@@ -173,19 +188,18 @@ export async function fetchLlmRatings(
 ): Promise<LlmRatingResult | null> {
   const keys = collectGeminiKeys();
   if (keys.length === 0) {
-    // Don't throw; let the batch keep running and skip companies cleanly.
     // Either no key configured at all, or every key is exhausted today.
+    // Throw a distinct error so the batch processor knows NOT to mark the
+    // company as attempted (we never made a real call).
     if (
       !process.env.GEMINI_API_KEY &&
       !process.env.GEMINI_API_KEY_2 &&
       !process.env.GEMINI_API_KEY_3 &&
       !process.env.GEMINI_API_KEY_4
     ) {
-      console.warn('[llmRatings] No GEMINI_API_KEY* env var set; skipping fetch');
-    } else {
-      console.warn('[llmRatings] All Gemini API keys are quota-exhausted; skipping fetch');
+      throw new GeminiQuotaExhaustedError('No GEMINI_API_KEY* env var set');
     }
-    return null;
+    throw new GeminiQuotaExhaustedError('All Gemini API keys are quota-exhausted');
   }
 
   const disambiguator = [
@@ -204,19 +218,30 @@ Make sure indeedUrl is the exact Indeed company-overview page (e.g. /cmp/Company
   // process and rotate to the next. On any other failure, give up — those are
   // not key-specific and burning more keys won't help.
   let response: Awaited<ReturnType<GoogleGenAI['models']['generateContent']>> | null = null;
+  let allExhausted = true;
   for (const key of keys) {
     const outcome = await callGemini(key, prompt, companyName);
     if (outcome.ok) {
       response = outcome.response;
+      allExhausted = false;
       break;
     }
     if (outcome.reason === QUOTA_EXHAUSTED) {
       EXHAUSTED_KEYS.add(key);
       continue;
     }
+    // Real failure (non-quota): we DID make a call, just failed. Caller can
+    // legitimately mark the company as attempted.
     return null;
   }
-  if (!response) return null;
+  if (!response) {
+    if (allExhausted) {
+      throw new GeminiQuotaExhaustedError(
+        `All Gemini API keys exhausted while fetching "${companyName}"`,
+      );
+    }
+    return null;
+  }
 
   const text = response.text ?? '';
   const candidate = response.candidates?.[0];

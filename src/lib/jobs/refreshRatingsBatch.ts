@@ -9,7 +9,7 @@
  *  2. A one-time bootstrap run (huge N, e.g. 1000) — first-time fill.
  */
 import { prisma } from '../db';
-import { fetchLlmRatings } from '../providers/llmRatings';
+import { fetchLlmRatings, GeminiQuotaExhaustedError } from '../providers/llmRatings';
 
 export interface BatchOptions {
   /** Max companies to refresh in this run. */
@@ -64,10 +64,18 @@ export async function refreshRatingsBatch(opts: BatchOptions): Promise<BatchResu
   let noData = 0;
   let failed = 0;
   let processed = 0;
+  // When every Gemini key has exhausted its daily quota, there's no point
+  // iterating the rest of the batch — abort early so we don't burn time and
+  // (more importantly) don't falsely mark companies as attempted.
+  let allKeysExhausted = false;
 
   // Process one company end-to-end (fetch + DB write). Returns its outcome
-  // status for the progress callback.
-  const processOne = async (c: typeof targets[number]): Promise<'ok' | 'no-data' | 'fail'> => {
+  // status for the progress callback. Returns 'skip-quota' when we couldn't
+  // make a real Gemini call due to global key exhaustion — the company is
+  // left untouched so the next run picks it up after quota reset.
+  const processOne = async (
+    c: typeof targets[number],
+  ): Promise<'ok' | 'no-data' | 'fail' | 'skip-quota'> => {
     try {
       const r = await fetchLlmRatings(c.name, {
         ticker: c.tickerSymbol,
@@ -75,6 +83,8 @@ export async function refreshRatingsBatch(opts: BatchOptions): Promise<BatchResu
       });
 
       if (r == null) {
+        // Real failure (not quota): we did make a call, it just didn't return
+        // parseable data. Legit to record as attempted.
         failed++;
         await prisma.company.update({
           where: { id: c.id },
@@ -109,6 +119,13 @@ export async function refreshRatingsBatch(opts: BatchOptions): Promise<BatchResu
       await prisma.company.update({ where: { id: c.id }, data });
       return gotAnyData ? 'ok' : 'no-data';
     } catch (err) {
+      if (err instanceof GeminiQuotaExhaustedError) {
+        // Global quota exhaustion — we never actually called Gemini for this
+        // company. Leave it untouched so it's still in the "never attempted"
+        // bucket. Signal the outer loop to stop.
+        allKeysExhausted = true;
+        return 'skip-quota';
+      }
       failed++;
       console.warn(`[refreshRatingsBatch] ${c.name} failed:`, err);
       await prisma.company
@@ -128,7 +145,17 @@ export async function refreshRatingsBatch(opts: BatchOptions): Promise<BatchResu
     const results = await Promise.all(chunk.map(processOne));
     for (let j = 0; j < chunk.length; j++) {
       processed++;
-      opts.onProgress?.(processed, targets.length, chunk[j].name, results[j]);
+      // Map skip-quota → fail for the progress callback's narrower signature.
+      const raw = results[j];
+      const status: 'ok' | 'no-data' | 'fail' = raw === 'skip-quota' ? 'fail' : raw;
+      opts.onProgress?.(processed, targets.length, chunk[j].name, status);
+    }
+    if (allKeysExhausted) {
+      console.warn(
+        '[refreshRatingsBatch] All Gemini keys exhausted; aborting batch early. ' +
+          'Remaining companies left untouched (still "never attempted"); rerun after quota reset.',
+      );
+      break;
     }
     // Throttle between chunks (skip after the last chunk).
     if (chunkStart + concurrency < targets.length) {
