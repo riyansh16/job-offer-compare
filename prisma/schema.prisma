@@ -29,6 +29,11 @@ model User {
   // signup or via Profile settings); used to filter external compensation
   // signals (e.g. LeetCode posts) to peers in the same YoE band.
   yearsExperience Int?
+  // Lightweight usage telemetry (bumped by the events.signIn hook in auth.ts).
+  // Lets the /admin/stats page report DAU and total sign-in volume without
+  // a separate UsageEvent table.
+  lastSignInAt    DateTime?
+  signInCount     Int       @default(0)
   createdAt      DateTime  @default(now())
 
   accounts       Account[]

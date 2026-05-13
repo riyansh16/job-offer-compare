@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { auth, signOut } from '@/lib/auth';
+import { isAdminEmail } from '@/lib/admin';
 
 export async function TopNav() {
   const session = await auth();
   const user = session?.user;
+  const isAdmin = isAdminEmail(user?.email);
 
   return (
     <nav className="sticky top-0 z-30 border-b bg-[rgb(var(--card))]/80 backdrop-blur">
@@ -24,6 +26,11 @@ export async function TopNav() {
               <Link href="/companies" className="btn-ghost">
                 Companies
               </Link>
+              {isAdmin && (
+                <Link href="/admin/stats" className="btn-ghost">
+                  Admin
+                </Link>
+              )}
               <span className="hidden text-[rgb(var(--muted-foreground))] md:inline">
                 {user.email}
               </span>

@@ -75,4 +75,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session;
     },
   },
+  events: {
+    // Lightweight sign-in telemetry: bumps lastSignInAt + signInCount on
+    // every successful sign-in (Google or Credentials). Used by /admin/stats
+    // to report DAU + total sign-ins. Failures here are swallowed so a DB
+    // hiccup never blocks login.
+    async signIn({ user }) {
+      if (!user?.id) return;
+      try {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            lastSignInAt: new Date(),
+            signInCount: { increment: 1 },
+          },
+        });
+      } catch (err) {
+        console.warn('[auth.events.signIn] failed to bump telemetry:', err);
+      }
+    },
+  },
 });
