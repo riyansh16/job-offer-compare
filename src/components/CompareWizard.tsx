@@ -43,7 +43,7 @@ export function CompareWizard({
       return null as unknown as Weights;
     }
   });
-  const [equityGrowthPct, setEquityGrowthPct] = useState<number>(0);
+  const [equityGrowthPct] = useState<number>(0);
   const [name, setName] = useState<string>(DEFAULT_NAME());
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();

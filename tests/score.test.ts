@@ -79,7 +79,7 @@ describe('totalAnnualValue', () => {
       benefitsValueAnnual: 5_000,
       commuteCostMonthly: 0,
     });
-    const v = totalAnnualValue(c, { equityGrowthPct: 0 });
+    const v = totalAnnualValue(c);
     expect(v).toBeCloseTo(115_000, 0); // 100k + 10k bonus + 5k benefits
   });
 });

@@ -50,10 +50,7 @@ export function commuteCostAnnual(monthly: number, mode: WorkMode): number {
  * All amounts are taken at face value in their entered currency (the runner
  * normalizes via FX before calling the engine).
  */
-export function totalAnnualValue(
-  comp: CompensationInput,
-  opts: EngineOptions = {},
-): number {
+export function totalAnnualValue(comp: CompensationInput): number {
   // equityTotal field is interpreted as "$ vesting per year" (see equity.ts).
   const equity = valueEquity(comp.equityTotal);
   const signOn = amortizeSignOn(comp.signOnBonus);
@@ -68,7 +65,7 @@ interface RawMetricRow {
   totalAnnualValue: number;
 }
 
-function rawMetricsFor(offer: OfferInput, opts: EngineOptions): RawMetricRow {
+function rawMetricsFor(offer: OfferInput): RawMetricRow {
   const c = offer.compensation;
   const bonus = annualizeBonus(c.baseSalary, c.targetBonusPct);
   const equity = valueEquity(c.equityTotal);
@@ -98,7 +95,7 @@ function rawMetricsFor(offer: OfferInput, opts: EngineOptions): RawMetricRow {
 
   return {
     offerId: offer.id,
-    totalAnnualValue: totalAnnualValue(c, opts),
+    totalAnnualValue: totalAnnualValue(c),
     values,
   };
 }
@@ -156,7 +153,7 @@ export function compareOffers(
   }
 
   const normalizedWeights = normalizeWeights(weights);
-  const rawRows = offers.map((o) => rawMetricsFor(o, opts));
+  const rawRows = offers.map((o) => rawMetricsFor(o));
 
   // Per-metric normalization across offers.
   const normalizedByMetric: Record<MetricKey, number[]> = {} as Record<MetricKey, number[]>;
