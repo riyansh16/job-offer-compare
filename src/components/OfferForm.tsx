@@ -33,6 +33,9 @@ export interface OfferInitial {
   vestCliffMonths?: number;
   vestCadence?: string;
   vestBackloaded?: boolean;
+  /** Total years of professional experience. Only collected on the current
+   *  role form; persists to User.yearsExperience for use on comparison pages. */
+  yearsExperience?: number;
 }
 
 export function OfferForm({
@@ -94,6 +97,22 @@ export function OfferForm({
           <label htmlFor="location" className="label">Location (city)</label>
           <input id="location" name="location" required defaultValue={initial?.location} className="input" placeholder="Seattle, WA or Remote" />
         </div>
+        {isCurrentMode && (
+          <div>
+            <label htmlFor="yearsExperience" className="label">Years of experience</label>
+            <input
+              id="yearsExperience"
+              name="yearsExperience"
+              type="number"
+              min={0}
+              max={50}
+              step={1}
+              defaultValue={initial?.yearsExperience ?? ''}
+              className="input"
+              placeholder="e.g. 5"
+            />
+          </div>
+        )}
         {!isCurrentMode && (
           <>
             <div>

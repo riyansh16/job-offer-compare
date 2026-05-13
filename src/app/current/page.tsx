@@ -11,12 +11,16 @@ export default async function CurrentRolePage() {
   const userId = (session?.user as { id?: string } | undefined)?.id;
   if (!userId) redirect('/auth/signin');
 
-  const [current, companies] = await Promise.all([
+  const [current, companies, user] = await Promise.all([
     prisma.jobOffer.findFirst({
       where: { userId, isCurrent: true },
       include: { company: true, compensation: true },
     }),
     prisma.company.findMany({ orderBy: { name: 'asc' } }),
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { yearsExperience: true },
+    }),
   ]);
 
   if (companies.length === 0) {
@@ -45,6 +49,7 @@ export default async function CurrentRolePage() {
         <OfferForm
           mode="current"
           companies={companies.map((c) => ({ id: c.id, name: c.name }))}
+          initial={{ yearsExperience: user?.yearsExperience ?? undefined }}
         />
       </div>
     );
@@ -109,6 +114,7 @@ export default async function CurrentRolePage() {
             vestCliffMonths: vest.cliffMonths,
             vestCadence: vest.cadence,
             vestBackloaded: vest.backloaded,
+            yearsExperience: user?.yearsExperience ?? undefined,
           }}
         />
       </section>

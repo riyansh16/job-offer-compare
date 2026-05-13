@@ -7,6 +7,7 @@ import { ComparisonResults } from '@/components/ComparisonResults';
 import { AiInsightsPanel } from '@/components/AiInsightsPanel';
 import { DeleteComparisonButton } from '@/components/DeleteOfferButton';
 import { LayoffSignals } from '@/components/LayoffSignals';
+import { LeetcodeCompLinks } from '@/components/LeetcodeCompLinks';
 import { isAiEnabled } from '@/lib/ai/provider';
 
 export default async function ComparisonPage({ params }: { params: Promise<{ id: string }> }) {
@@ -25,35 +26,60 @@ export default async function ComparisonPage({ params }: { params: Promise<{ id:
     return <div className="card text-sm text-[rgb(var(--danger))]">Comparison snapshot is corrupt.</div>;
   }
 
-  // Pull layoff signal data per company in the snapshot. Looked up live (not
-  // baked into the snapshot) so refreshed layoff data shows up on revisit
-  // without re-running the comparison.
+  // Fetch the offers + company info + the user's stored years-of-experience
+  // in one round-trip. Both LayoffSignals and LeetcodeCompLinks reuse this.
   const offerIds = c.offerIdsCsv.split(',').filter(Boolean);
-  const offers = await prisma.jobOffer.findMany({
-    where: { id: { in: offerIds } },
-    select: {
-      id: true,
-      company: {
-        select: {
-          id: true,
-          name: true,
-          layoffsLast12mPct: true,
-          layoffsAsOf: true,
-          layoffsSourceUrl: true,
+  const [offers, user] = await Promise.all([
+    prisma.jobOffer.findMany({
+      where: { id: { in: offerIds } },
+      select: {
+        id: true,
+        title: true,
+        level: true,
+        isCurrent: true,
+        company: {
+          select: {
+            id: true,
+            name: true,
+            layoffsLast12mPct: true,
+            layoffsAsOf: true,
+            layoffsSourceUrl: true,
+          },
         },
       },
-    },
-  });
-  // Preserve the user's original offer order; dedupe companies (same company
-  // could appear in two offers in the same comparison).
+    }),
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { yearsExperience: true },
+    }),
+  ]);
+
+  // Preserve the user's original offer order; dedupe companies for the
+  // layoff banner (same company could appear in two offers in the same
+  // comparison), but keep per-offer rows for LeetCode (offer-by-offer view).
   const seen = new Set<string>();
   const layoffCompanies: NonNullable<(typeof offers)[number]['company']>[] = [];
+  const compTargets: {
+    offerId: string;
+    companyName: string;
+    title: string;
+    level: string | null;
+    isCurrent: boolean;
+  }[] = [];
   for (const oid of offerIds) {
-    const co = offers.find((o) => o.id === oid)?.company;
-    if (co && !seen.has(co.id)) {
-      seen.add(co.id);
-      layoffCompanies.push(co);
+    const o = offers.find((x) => x.id === oid);
+    if (!o) continue;
+    if (!seen.has(o.company.id)) {
+      seen.add(o.company.id);
+      layoffCompanies.push(o.company);
     }
+    compTargets.push({
+      offerId: o.id,
+      companyName: o.company.name,
+      title: o.title,
+      level: o.level,
+      isCurrent: o.isCurrent,
+    });
   }
 
   const aiEnabled = isAiEnabled();
@@ -74,6 +100,11 @@ export default async function ComparisonPage({ params }: { params: Promise<{ id:
       <ComparisonResults snapshot={snapshot} />
 
       <LayoffSignals companies={layoffCompanies} />
+
+      <LeetcodeCompLinks
+        companies={compTargets}
+        yearsExperience={user?.yearsExperience ?? null}
+      />
 
       {aiEnabled && <AiInsightsPanel comparisonId={c.id} />}
 

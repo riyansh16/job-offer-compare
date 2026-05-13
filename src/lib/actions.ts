@@ -44,6 +44,14 @@ const offerSchema = z.object({
   vestCliffMonths: z.coerce.number().int().min(0).max(36).default(12),
   vestCadence: z.enum(['monthly', 'quarterly', 'annual']).default('quarterly'),
   vestBackloaded: z.boolean().optional(),
+  // Only collected on the current-role form. Persists to User.yearsExperience
+  // on save. Empty string is normalized to undefined so the schema treats it
+  // as "not provided".
+  yearsExperience: z
+    .preprocess(
+      (v) => (v === '' || v == null ? undefined : v),
+      z.coerce.number().int().min(0).max(50).optional(),
+    ),
 });
 
 export async function upsertOffer(id: string | null, formData: FormData) {
@@ -96,6 +104,7 @@ export async function upsertOffer(id: string | null, formData: FormData) {
     });
     revalidatePath('/dashboard');
     revalidatePath(`/offers/${updated.id}`);
+    await maybeUpdateYoe(userId, data);
     return updated;
   }
 
@@ -126,8 +135,23 @@ export async function upsertOffer(id: string | null, formData: FormData) {
       },
     },
   });
+  await maybeUpdateYoe(userId, data);
   revalidatePath('/dashboard');
   return created;
+}
+
+/** Persist yearsExperience to the user row when the form was the current-role
+ *  flavor and a value was supplied. Quietly no-ops otherwise. */
+async function maybeUpdateYoe(
+  userId: string,
+  data: { isCurrent?: boolean; yearsExperience?: number },
+) {
+  if (!data.isCurrent) return;
+  if (data.yearsExperience == null) return;
+  await prisma.user.update({
+    where: { id: userId },
+    data: { yearsExperience: data.yearsExperience },
+  });
 }
 
 export async function deleteOffer(id: string) {
