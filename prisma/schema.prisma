@@ -1,6 +1,6 @@
 // Prisma schema for the Job Offer Comparison Portal.
-// Uses SQLite for local dev; switch to "postgresql" in production by changing
-// the datasource provider and DATABASE_URL. The schema is portable across both.
+// Uses PostgreSQL in both dev and prod. The schema is identical across them
+// so a single `DATABASE_URL` swap moves between environments.
 
 generator client {
   provider      = "prisma-client-js"
@@ -10,7 +10,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
