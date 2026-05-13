@@ -2,7 +2,11 @@ import { prisma } from '../db';
 import { fetchHackerNewsSentiment } from './hackerNews';
 import { fetchRedditSentiment } from './reddit';
 
-const STALE_DAYS = 7;
+// Sentiment refreshes monthly, matching the Indeed ratings cadence. Reddit /
+// HN posts age slowly relative to comp signals, and the runner triggers this
+// during real comparisons — a 30-day cache keeps API hammering low while
+// still catching big shifts (layoffs, controversies) within a month.
+const STALE_DAYS = 30;
 
 /**
  * Refresh review sentiment for a company from all configured free sources.

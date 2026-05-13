@@ -31,9 +31,12 @@ export function CompanyRefreshPanel({
   initialCagr5y?: number | null;
   initialCagr1y?: number | null;
 }) {
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const [latest, setLatest] = useState<Sentiment[]>(sentiments);
+  // Sentiment is read-only here — it auto-refreshes when stale during a real
+  // comparison run (see `src/lib/engine/runner.ts`). We don't expose a manual
+  // refresh button to avoid letting any signed-in user hammer Reddit / HN.
+  const latest = sentiments;
   const [stockInfo, setStockInfo] = useState<{
     pointCount: number;
     firstDate: string | null;
@@ -50,27 +53,19 @@ export function CompanyRefreshPanel({
     cagr1y: initialCagr1y ?? null,
   });
 
-  async function refresh(kind: 'sentiment' | 'stock') {
-    setBusy(kind);
+  async function refreshStock() {
+    setBusy(true);
     setMsg(null);
     try {
       const res = await fetch(`/api/companies/${companyId}/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind, force: true }),
+        body: JSON.stringify({ kind: 'stock' }),
       });
       const data = (await res.json()) as { ok?: boolean; result?: unknown; error?: string };
       if (!res.ok || data.error) {
         setMsg(data.error ?? 'Failed');
-      } else if (kind === 'sentiment' && Array.isArray(data.result)) {
-        setLatest(
-          (data.result as { source: string; score: number; sampleSize: number; summary: string; fetchedAt: string }[]).map((r) => ({
-            ...r,
-            fetchedAt: new Date(r.fetchedAt).toISOString(),
-          })),
-        );
-        setMsg('Sentiment refreshed.');
-      } else if (kind === 'stock' && data.result && typeof data.result === 'object') {
+      } else if (data.result && typeof data.result === 'object') {
         const r = data.result as {
           pointCount: number;
           startDate: string;
@@ -96,7 +91,7 @@ export function CompanyRefreshPanel({
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Failed');
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   }
 
@@ -105,14 +100,11 @@ export function CompanyRefreshPanel({
       <h2 className="font-semibold">Reviews & stock data</h2>
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Community sentiment</h3>
-            <button onClick={() => refresh('sentiment')} disabled={busy !== null} className="btn-outline text-xs">
-              {busy === 'sentiment' ? 'Fetching…' : 'Refresh'}
-            </button>
-          </div>
+          <h3 className="text-sm font-semibold">Community sentiment</h3>
           {latest.length === 0 ? (
-            <p className="text-xs text-[rgb(var(--muted-foreground))]">No data yet. Click Refresh.</p>
+            <p className="text-xs text-[rgb(var(--muted-foreground))]">
+              No data yet. Refreshes automatically the next time this company appears in a comparison.
+            </p>
           ) : (
             <ul className="space-y-2 text-xs">
               {latest.map((s) => (
@@ -134,12 +126,12 @@ export function CompanyRefreshPanel({
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">Stock history</h3>
             <button
-              onClick={() => refresh('stock')}
-              disabled={busy !== null || !ticker}
+              onClick={refreshStock}
+              disabled={busy || !ticker}
               className="btn-outline text-xs"
               title={ticker ? 'Refresh' : 'Set a ticker symbol to enable.'}
             >
-              {busy === 'stock' ? 'Fetching…' : 'Refresh'}
+              {busy ? 'Fetching…' : 'Refresh'}
             </button>
           </div>
           {ticker ? (

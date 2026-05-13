@@ -42,6 +42,91 @@ export interface LlmRatingResult {
 //   - gemini-2.0-flash      (older, separate quota)
 const MODEL_ID = process.env.GEMINI_RATINGS_MODEL ?? 'gemini-2.5-flash-lite';
 
+// Per-process record of API keys that hit their daily quota. Resets on cold
+// start, which is what we want — quota resets ~24h on Gemini's free tier and
+// the worst case is one wasted call to re-confirm exhaustion. We only mark a
+// key exhausted on a 429 with a long server-suggested retryDelay (> 60s);
+// short delays are per-minute throttling and handled in-place.
+const EXHAUSTED_KEYS = new Set<string>();
+
+/**
+ * Collect every configured Gemini API key, in priority order, skipping any
+ * marked exhausted in this process. Supports `GEMINI_API_KEY` (primary) plus
+ * numbered fallbacks `GEMINI_API_KEY_2`, `GEMINI_API_KEY_3`, ... up to _10.
+ */
+function collectGeminiKeys(): string[] {
+  const raw: (string | undefined)[] = [process.env.GEMINI_API_KEY];
+  for (let i = 2; i <= 10; i++) raw.push(process.env[`GEMINI_API_KEY_${i}`]);
+  const keys = raw
+    .map((k) => k?.trim())
+    .filter((k): k is string => !!k && k.length > 0);
+  // Dedupe (someone might paste the same key in two slots) and drop exhausted.
+  return [...new Set(keys)].filter((k) => !EXHAUSTED_KEYS.has(k));
+}
+
+/** Tag value to distinguish daily-quota exhaustion from other failures. */
+const QUOTA_EXHAUSTED = Symbol('gemini-quota-exhausted');
+type CallOutcome =
+  | { ok: true; response: Awaited<ReturnType<GoogleGenAI['models']['generateContent']>> }
+  | { ok: false; reason: typeof QUOTA_EXHAUSTED | 'failed' };
+
+/**
+ * One attempt against one API key, with the per-minute 429 retry kept inline.
+ * Returns:
+ *   - { ok: true }                                  → success
+ *   - { ok: false, reason: QUOTA_EXHAUSTED }        → caller should try next key
+ *   - { ok: false, reason: 'failed' }               → unrelated error, give up
+ */
+async function callGemini(
+  apiKey: string,
+  prompt: string,
+  companyName: string,
+): Promise<CallOutcome> {
+  const ai = new GoogleGenAI({ apiKey });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const response = await ai.models.generateContent({
+        model: MODEL_ID,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          systemInstruction: SYSTEM_PROMPT,
+          // Grounding via Google Search — gets us cached Indeed snippets.
+          tools: [{ googleSearch: {} }],
+          // Low temperature: we want extraction, not creativity.
+          temperature: 0.1,
+        },
+      });
+      return { ok: true, response };
+    } catch (err) {
+      const status = (err as { status?: number })?.status;
+      if (status !== 429) {
+        console.warn(`[llmRatings] Gemini call failed for "${companyName}":`, err);
+        return { ok: false, reason: 'failed' };
+      }
+      const delayMs = extractRetryDelayMs(err);
+      // Long retryDelay (or none) → daily quota. Surface as exhausted so the
+      // outer loop rotates to the next API key.
+      if (delayMs === 0 || delayMs > 60_000) {
+        console.warn(
+          `[llmRatings] daily quota hit for "${companyName}" on key …${apiKey.slice(-6)}`,
+        );
+        return { ok: false, reason: QUOTA_EXHAUSTED };
+      }
+      // Short retry → per-minute throttle. Wait it out once, then retry.
+      if (attempt === 0) {
+        console.warn(
+          `[llmRatings] 429 for "${companyName}"; retrying in ${(delayMs / 1000).toFixed(1)}s`,
+        );
+        await new Promise((r) => setTimeout(r, delayMs + 250));
+        continue;
+      }
+      // Second 429 in a row → treat as exhausted to avoid hammering.
+      return { ok: false, reason: QUOTA_EXHAUSTED };
+    }
+  }
+  return { ok: false, reason: 'failed' };
+}
+
 const SYSTEM_PROMPT = `You are a precise data extractor.
 Given a company name, you search the web for its current Indeed (indeed.com) ratings
 and return them as STRICT JSON only — no prose, no markdown.
@@ -86,10 +171,20 @@ export async function fetchLlmRatings(
   companyName: string,
   opts: FetchOptions = {},
 ): Promise<LlmRatingResult | null> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  const keys = collectGeminiKeys();
+  if (keys.length === 0) {
     // Don't throw; let the batch keep running and skip companies cleanly.
-    console.warn('[llmRatings] GEMINI_API_KEY not set; skipping fetch');
+    // Either no key configured at all, or every key is exhausted today.
+    if (
+      !process.env.GEMINI_API_KEY &&
+      !process.env.GEMINI_API_KEY_2 &&
+      !process.env.GEMINI_API_KEY_3 &&
+      !process.env.GEMINI_API_KEY_4
+    ) {
+      console.warn('[llmRatings] No GEMINI_API_KEY* env var set; skipping fetch');
+    } else {
+      console.warn('[llmRatings] All Gemini API keys are quota-exhausted; skipping fetch');
+    }
     return null;
   }
 
@@ -105,42 +200,21 @@ export async function fetchLlmRatings(
 Search the web and return STRICT JSON matching the schema in the system prompt.
 Make sure indeedUrl is the exact Indeed company-overview page (e.g. /cmp/CompanyName).`;
 
-  const ai = new GoogleGenAI({ apiKey });
-
-  // Single retry on 429 (rate limit). The error payload includes a
-  // server-suggested retryDelay (e.g. "36s"); we honor it (capped at 60s) so
-  // a brief per-minute window pause doesn't burn an attempt slot. Daily-quota
-  // 429s also come back with a delay but it's effectively hours — we cap at
-  // 60s and let the caller treat the second 429 as a hard fail.
-  let response;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      response = await ai.models.generateContent({
-        model: MODEL_ID,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: {
-          systemInstruction: SYSTEM_PROMPT,
-          // Grounding via Google Search — gets us cached Indeed snippets.
-          tools: [{ googleSearch: {} }],
-          // Low temperature: we want extraction, not creativity.
-          temperature: 0.1,
-        },
-      });
+  // Try keys in order. On daily-quota exhaustion, mark the key dead for this
+  // process and rotate to the next. On any other failure, give up — those are
+  // not key-specific and burning more keys won't help.
+  let response: Awaited<ReturnType<GoogleGenAI['models']['generateContent']>> | null = null;
+  for (const key of keys) {
+    const outcome = await callGemini(key, prompt, companyName);
+    if (outcome.ok) {
+      response = outcome.response;
       break;
-    } catch (err) {
-      const status = (err as { status?: number })?.status;
-      const delayMs = status === 429 ? extractRetryDelayMs(err) : 0;
-      const canRetry = status === 429 && delayMs > 0 && delayMs <= 60_000 && attempt === 0;
-      if (canRetry) {
-        console.warn(
-          `[llmRatings] 429 for "${companyName}"; retrying in ${(delayMs / 1000).toFixed(1)}s`,
-        );
-        await new Promise((r) => setTimeout(r, delayMs + 250));
-        continue;
-      }
-      console.warn(`[llmRatings] Gemini call failed for "${companyName}":`, err);
-      return null;
     }
+    if (outcome.reason === QUOTA_EXHAUSTED) {
+      EXHAUSTED_KEYS.add(key);
+      continue;
+    }
+    return null;
   }
   if (!response) return null;
 
