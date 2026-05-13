@@ -3,7 +3,10 @@
 // the datasource provider and DATABASE_URL. The schema is portable across both.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Bundle multiple Linux engine builds so the Prisma Client works on both
+  // dev (native macOS/Windows) and Azure SWA's runtime (Debian + openssl 1.1).
+  binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x"]
 }
 
 datasource db {
