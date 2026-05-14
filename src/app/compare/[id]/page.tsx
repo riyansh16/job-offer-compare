@@ -8,6 +8,7 @@ import { AiInsightsPanel } from '@/components/AiInsightsPanel';
 import { DeleteComparisonButton } from '@/components/DeleteOfferButton';
 import { LayoffSignals } from '@/components/LayoffSignals';
 import { LeetcodeCompLinks } from '@/components/LeetcodeCompLinks';
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 import { isAiEnabled } from '@/lib/ai/provider';
 
 export default async function ComparisonPage({ params }: { params: Promise<{ id: string }> }) {
@@ -86,6 +87,13 @@ export default async function ComparisonPage({ params }: { params: Promise<{ id:
 
   return (
     <div className="space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Dashboard', href: '/dashboard' },
+          { label: 'Comparisons', href: '/dashboard' },
+          { label: c.name },
+        ]}
+      />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">{c.name}</h1>

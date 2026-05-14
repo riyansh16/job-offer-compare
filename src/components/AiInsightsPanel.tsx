@@ -1,7 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { RefreshCw } from 'lucide-react';
 import type { AiInsightKind } from '@/lib/engine';
+import { Spinner } from './ui/Spinner';
+import { SkeletonLines } from './ui/Skeleton';
 
 const KINDS: { kind: AiInsightKind; label: string; description: string }[] = [
   { kind: 'Verdict', label: 'Verdict', description: 'Why offer #1 wins.' },
@@ -23,6 +28,12 @@ export function AiInsightsPanel({ comparisonId }: { comparisonId: string }) {
     Negotiation: '',
     Questions: '',
   });
+  const [errors, setErrors] = useState<Record<AiInsightKind, string | null>>({
+    Verdict: null,
+    Tradeoffs: null,
+    Negotiation: null,
+    Questions: null,
+  });
   const [loading, setLoading] = useState<Record<AiInsightKind, boolean>>({
     Verdict: false,
     Tradeoffs: false,
@@ -38,7 +49,11 @@ export function AiInsightsPanel({ comparisonId }: { comparisonId: string }) {
 
   async function fetchInsight(kind: AiInsightKind, force: boolean) {
     setLoading((l) => ({ ...l, [kind]: true }));
-    setContent((c) => ({ ...c, [kind]: '' }));
+    setErrors((e) => ({ ...e, [kind]: null }));
+    // Keep prior content visible while regenerating; only clear if this is a
+    // fresh fetch (no content yet).
+    if (!content[kind]) setContent((c) => ({ ...c, [kind]: '' }));
+    let buf = '';
     try {
       const res = await fetch(`/api/comparisons/${comparisonId}/ai`, {
         method: 'POST',
@@ -47,22 +62,28 @@ export function AiInsightsPanel({ comparisonId }: { comparisonId: string }) {
       });
       if (!res.ok || !res.body) {
         const err = await res.json().catch(() => ({}));
-        setContent((c) => ({ ...c, [kind]: `[AI error: ${err?.error ?? res.statusText}]` }));
+        setErrors((e) => ({ ...e, [kind]: String(err?.error ?? res.statusText) }));
         return;
       }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let buf = '';
+      let firstChunk = true;
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
         buf += decoder.decode(value, { stream: true });
-        setContent((c) => ({ ...c, [kind]: buf }));
+        // On first chunk, replace any prior content with the new stream.
+        if (firstChunk) {
+          firstChunk = false;
+          setContent((c) => ({ ...c, [kind]: buf }));
+        } else {
+          setContent((c) => ({ ...c, [kind]: buf }));
+        }
       }
     } catch (e) {
-      setContent((c) => ({
-        ...c,
-        [kind]: `[AI error: ${e instanceof Error ? e.message : 'unknown'}]`,
+      setErrors((er) => ({
+        ...er,
+        [kind]: e instanceof Error ? e.message : 'Unknown error',
       }));
     } finally {
       setLoading((l) => ({ ...l, [kind]: false }));
@@ -84,39 +105,87 @@ export function AiInsightsPanel({ comparisonId }: { comparisonId: string }) {
       </div>
 
       <div className="space-y-3">
-        {KINDS.map(({ kind, label, description }) => (
-          <div key={kind} className="rounded-lg border">
-            <button
-              onClick={() => toggle(kind)}
-              className="flex w-full items-center justify-between p-3 text-left"
-            >
-              <div>
-                <div className="font-medium">{label}</div>
-                <div className="text-xs text-[rgb(var(--muted-foreground))]">{description}</div>
-              </div>
-              <div className="flex items-center gap-2">
-                {loading[kind] && <span className="text-xs">streaming…</span>}
-                <span className="text-lg">{open[kind] ? '−' : '+'}</span>
-              </div>
-            </button>
-            {open[kind] && (
-              <div className="border-t p-3">
-                <div className="prose prose-sm max-w-none whitespace-pre-wrap text-sm">
-                  {content[kind] || (loading[kind] ? '' : '(click Regenerate to fetch)')}
+        {KINDS.map(({ kind, label, description }) => {
+          const isLoading = loading[kind];
+          const errorMsg = errors[kind];
+          const hasContent = !!content[kind];
+          const showSkeleton = isLoading && !hasContent;
+          return (
+            <div key={kind} className="rounded-lg border">
+              <button
+                onClick={() => toggle(kind)}
+                className="flex w-full items-center justify-between p-3 text-left"
+                aria-expanded={open[kind]}
+              >
+                <div>
+                  <div className="font-medium">{label}</div>
+                  <div className="text-xs text-[rgb(var(--muted-foreground))]">{description}</div>
                 </div>
-                <div className="mt-2 text-right">
-                  <button
-                    onClick={() => fetchInsight(kind, true)}
-                    disabled={loading[kind]}
-                    className="btn-outline text-xs"
-                  >
-                    {loading[kind] ? 'Working…' : 'Regenerate'}
-                  </button>
+                <div className="flex items-center gap-2">
+                  {isLoading && (
+                    <span className="flex items-center gap-1 text-xs text-[rgb(var(--muted-foreground))]">
+                      <Spinner size={12} label="Streaming" /> streaming…
+                    </span>
+                  )}
+                  <span className="text-lg" aria-hidden>
+                    {open[kind] ? '−' : '+'}
+                  </span>
                 </div>
-              </div>
-            )}
-          </div>
-        ))}
+              </button>
+              {open[kind] && (
+                <div className="border-t p-3">
+                  {showSkeleton ? (
+                    <SkeletonLines count={4} />
+                  ) : hasContent ? (
+                    <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content[kind]}</ReactMarkdown>
+                    </div>
+                  ) : !errorMsg ? (
+                    <p className="text-sm text-[rgb(var(--muted-foreground))]">
+                      Click <strong>Generate</strong> below to fetch this insight.
+                    </p>
+                  ) : null}
+
+                  {errorMsg && (
+                    <div className="mt-2 rounded-md border border-[rgb(var(--danger))]/40 bg-[rgb(var(--danger))]/5 p-2 text-xs">
+                      <p className="text-[rgb(var(--danger))]">AI error: {errorMsg}</p>
+                      <button
+                        onClick={() => fetchInsight(kind, true)}
+                        disabled={isLoading}
+                        className="btn-outline mt-2 text-xs"
+                      >
+                        <RefreshCw size={12} aria-hidden />
+                        Retry
+                      </button>
+                    </div>
+                  )}
+
+                  {!errorMsg && (
+                    <div className="mt-2 text-right">
+                      <button
+                        onClick={() => fetchInsight(kind, true)}
+                        disabled={isLoading}
+                        className="btn-outline text-xs"
+                      >
+                        {isLoading ? (
+                          <>
+                            <Spinner size={12} label="Working" />
+                            Working…
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw size={12} aria-hidden />
+                            {hasContent ? 'Regenerate' : 'Generate'}
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </section>
   );

@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { CompanyRefreshPanel } from '@/components/CompanyRefreshPanel';
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 import { computeHistoricalCagr } from '@/lib/engine/equity';
 
 export default async function CompanyDetailPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -23,6 +24,12 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Companies', href: '/companies' },
+          { label: company.name },
+        ]}
+      />
       <header>
         <h1 className="text-2xl font-semibold">{company.name}</h1>
         <p className="text-sm text-[rgb(var(--muted-foreground))]">

@@ -1,8 +1,12 @@
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import { Scale } from 'lucide-react';
 import { prisma } from '@/lib/db';
 import { ensurePresetWeightProfiles } from '@/lib/actions';
 import { CompareWizard } from '@/components/CompareWizard';
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 export default async function NewComparePage() {
   const session = await auth();
@@ -24,18 +28,35 @@ export default async function NewComparePage() {
 
   if (offers.length < 2) {
     return (
-      <div className="card text-center text-sm">
-        You need at least 2 offers to run a comparison.{' '}
-        <a href="/offers/new" className="text-[rgb(var(--primary))] underline">
-          Add another offer
-        </a>
-        .
+      <div className="space-y-4">
+        <Breadcrumbs
+          items={[
+            { label: 'Dashboard', href: '/dashboard' },
+            { label: 'New comparison' },
+          ]}
+        />
+        <EmptyState
+          icon={Scale}
+          title="You need at least 2 offers to run a comparison"
+          description={`You currently have ${offers.length} offer${offers.length === 1 ? '' : 's'}. Add another to start comparing.`}
+          action={
+            <Link href="/offers/new" className="btn-primary">
+              Add an offer
+            </Link>
+          }
+        />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Dashboard', href: '/dashboard' },
+          { label: 'New comparison' },
+        ]}
+      />
       <h1 className="text-2xl font-semibold">New comparison</h1>
       <CompareWizard
         offers={offers.map((o) => ({

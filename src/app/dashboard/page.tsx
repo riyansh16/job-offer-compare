@@ -2,8 +2,10 @@ import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { redirect } from 'next/navigation';
+import { Briefcase, FileText, Scale, UserCog } from 'lucide-react';
 import { ensurePresetWeightProfiles } from '@/lib/actions';
 import { formatMoney } from '@/lib/utils';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -82,29 +84,34 @@ export default async function DashboardPage() {
             )}
           </Link>
         ) : (
-          <div className="card flex items-center justify-between gap-3">
-            <div>
-              <div className="font-medium">No current role set yet.</div>
-              <p className="text-sm text-[rgb(var(--muted-foreground))]">
-                Set up your current job once. It becomes the baseline shown by default in every
-                comparison.
-              </p>
-            </div>
-            <Link href="/current" className="btn-primary whitespace-nowrap">
-              Set current role
-            </Link>
-          </div>
+          <EmptyState
+            icon={UserCog}
+            title="No current role set yet"
+            description="Set up your current job once. It becomes the baseline shown by default in every comparison."
+            action={
+              <Link href="/current" className="btn-primary">
+                Set current role
+              </Link>
+            }
+          />
         )}
       </section>
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Offers</h2>
         {otherOffers.length === 0 ? (
-          <div className="card text-center text-sm text-[rgb(var(--muted-foreground))]">
-            No offers yet. <Link href="/offers/new" className="text-[rgb(var(--primary))] underline">Add an offer</Link> to start comparing.
-          </div>
+          <EmptyState
+            icon={Briefcase}
+            title="No offers yet"
+            description="Add an offer to start comparing it against your current role and other offers."
+            action={
+              <Link href="/offers/new" className="btn-primary">
+                Add an offer
+              </Link>
+            }
+          />
         ) : (
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             {otherOffers.map((o) => (
               <Link
                 key={o.id}
@@ -136,16 +143,26 @@ export default async function DashboardPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Saved comparisons</h2>
         {comparisons.length === 0 ? (
-          <div className="card text-center text-sm text-[rgb(var(--muted-foreground))]">
-            No comparisons yet.{' '}
-            {canCompare ? (
-              <Link href="/compare/new" className="text-[rgb(var(--primary))] underline">
-                Run your first comparison
-              </Link>
-            ) : (
-              'Add at least 2 offers first.'
-            )}
-          </div>
+          <EmptyState
+            icon={canCompare ? Scale : FileText}
+            title="No comparisons yet"
+            description={
+              canCompare
+                ? 'Run a side-by-side comparison of any 2 or more offers to see weighted scoring and AI insights.'
+                : 'You need at least 2 offers (a current role counts) to run a comparison.'
+            }
+            action={
+              canCompare ? (
+                <Link href="/compare/new" className="btn-primary">
+                  Run your first comparison
+                </Link>
+              ) : (
+                <Link href="/offers/new" className="btn-primary">
+                  Add another offer
+                </Link>
+              )
+            }
+          />
         ) : (
           <ul className="divide-y rounded-lg border bg-[rgb(var(--card))]">
             {comparisons.map((c) => (

@@ -1,8 +1,10 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
+import { toast } from 'sonner';
 import { createComparison } from '@/lib/actions';
 import { METRIC_KEYS, METRIC_LABELS, type Weights } from '@/lib/engine';
+import { Spinner } from './ui/Spinner';
 
 interface OfferOption {
   id: string;
@@ -143,7 +145,9 @@ export function CompareWizard({
         });
       } catch (e) {
         if (e instanceof Error && e.message.includes('NEXT_REDIRECT')) return;
-        setError(e instanceof Error ? e.message : 'Failed');
+        const msg = e instanceof Error ? e.message : 'Failed';
+        setError(msg);
+        toast.error(msg);
       }
     });
   }
@@ -154,7 +158,30 @@ export function CompareWizard({
 
       {step === 1 && (
         <section className="card space-y-3">
-          <h2 className="font-semibold">Pick offers to compare</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Pick offers to compare</h2>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-[rgb(var(--muted-foreground))]">
+                {selected.size} selected
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelected(new Set(offers.map((o) => o.id)))}
+                disabled={selected.size === offers.length}
+                className="btn-ghost text-xs"
+              >
+                Select all
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelected(new Set())}
+                disabled={selected.size === 0}
+                className="btn-ghost text-xs"
+              >
+                Deselect all
+              </button>
+            </div>
+          </div>
           <ul className="divide-y rounded border">
             {offers.map((o) => (
               <li key={o.id} className="flex items-center justify-between p-3">
@@ -211,23 +238,31 @@ export function CompareWizard({
               normalizes ratings into a 100-point share for scoring, so what matters is the
               relative magnitude.
             </p>
-            {METRIC_KEYS.map((k) => (
-              <div key={k} className="grid grid-cols-12 items-center gap-2 text-sm">
-                <label className="col-span-5">{METRIC_LABELS[k]}</label>
-                <input
-                  type="range"
-                  min={0}
-                  max={10}
-                  step={1}
-                  value={weights?.[k] ?? 0}
-                  onChange={(e) => setWeight(k, Number(e.target.value))}
-                  className="col-span-6"
-                />
-                <span className="col-span-1 text-right font-mono text-xs">
-                  {Math.round(weights?.[k] ?? 0)}
-                </span>
-              </div>
-            ))}
+            {METRIC_KEYS.map((k) => {
+              const v = Math.round(weights?.[k] ?? 0);
+              return (
+                <div key={k} className="grid grid-cols-12 items-center gap-2 text-sm">
+                  <label htmlFor={`weight-${k}`} className="col-span-5">
+                    {METRIC_LABELS[k]}
+                  </label>
+                  <input
+                    id={`weight-${k}`}
+                    type="range"
+                    min={0}
+                    max={10}
+                    step={1}
+                    value={weights?.[k] ?? 0}
+                    onChange={(e) => setWeight(k, Number(e.target.value))}
+                    className="col-span-5"
+                    aria-valuetext={`${v} (${weightLabel(v)})`}
+                  />
+                  <span className="col-span-2 text-right text-[11px]">
+                    <span className="font-mono">{v}</span>{' '}
+                    <span className="text-[rgb(var(--muted-foreground))]">{weightLabel(v)}</span>
+                  </span>
+                </div>
+              );
+            })}
           </div>
           <div className="flex justify-between">
             <button onClick={() => setStep(1)} className="btn-ghost">← Back</button>
@@ -248,18 +283,20 @@ export function CompareWizard({
               <div className="flex items-center justify-between">
                 <label className="label !mb-0">Stock-growth assumption per company (% / yr)</label>
                 <div className="flex items-center gap-2">
-                  <div className="inline-flex overflow-hidden rounded-md border text-xs">
+                  <div className="inline-flex overflow-hidden rounded-md border text-xs" role="group" aria-label="CAGR window">
                     <button
                       type="button"
                       onClick={() => setCagrWindow('5y')}
-                      className={`px-2 py-1 ${cagrWindow === '5y' ? 'bg-[rgb(var(--primary))] text-white' : ''}`}
+                      aria-pressed={cagrWindow === '5y'}
+                      className={`px-2 py-1 transition-colors ${cagrWindow === '5y' ? 'bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]' : 'hover:bg-[rgb(var(--muted))]'}`}
                     >
                       5y CAGR
                     </button>
                     <button
                       type="button"
                       onClick={() => setCagrWindow('1y')}
-                      className={`px-2 py-1 ${cagrWindow === '1y' ? 'bg-[rgb(var(--primary))] text-white' : ''}`}
+                      aria-pressed={cagrWindow === '1y'}
+                      className={`px-2 py-1 transition-colors ${cagrWindow === '1y' ? 'bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]' : 'hover:bg-[rgb(var(--muted))]'}`}
                     >
                       1y CAGR
                     </button>
@@ -270,6 +307,7 @@ export function CompareWizard({
                     disabled={fetchingCagr !== null}
                     className="btn-outline text-xs"
                   >
+                    {fetchingCagr === 'all' && <Spinner size={12} label="Refreshing" />}
                     {fetchingCagr === 'all' ? 'Fetching…' : 'Refresh all'}
                   </button>
                 </div>
@@ -315,10 +353,11 @@ export function CompareWizard({
               </ul>
             </div>
           </div>
-          {error && <p className="text-sm text-[rgb(var(--danger))]">{error}</p>}
+          {error && <p className="text-sm text-[rgb(var(--danger))]" role="alert">{error}</p>}
           <div className="flex justify-between">
             <button onClick={() => setStep(2)} className="btn-ghost">← Back</button>
             <button onClick={onSubmit} disabled={isPending} className="btn-primary">
+              {isPending && <Spinner size={14} label="Computing" />}
               {isPending ? 'Computing…' : 'Run comparison'}
             </button>
           </div>
@@ -328,6 +367,15 @@ export function CompareWizard({
   );
 }
 
+/** Map a 0-10 weight to a short qualitative descriptor. */
+function weightLabel(v: number): string {
+  if (v <= 0) return 'Ignore';
+  if (v <= 2) return 'Minor';
+  if (v <= 5) return 'Balanced';
+  if (v <= 8) return 'Important';
+  return 'Critical';
+}
+
 function Stepper({ step }: { step: 1 | 2 | 3 }) {
   const items: { n: 1 | 2 | 3; label: string }[] = [
     { n: 1, label: 'Offers' },
@@ -335,22 +383,41 @@ function Stepper({ step }: { step: 1 | 2 | 3 }) {
     { n: 3, label: 'Assumptions' },
   ];
   return (
-    <ol className="flex items-center gap-3 text-sm">
-      {items.map((it, i) => (
-        <li key={it.n} className="flex items-center gap-3">
-          <span
-            className={`flex h-7 w-7 items-center justify-center rounded-full border text-xs font-semibold ${
-              step >= it.n ? 'bg-[rgb(var(--primary))] text-white border-transparent' : ''
-            }`}
-          >
-            {it.n}
-          </span>
-          <span className={step === it.n ? 'font-semibold' : 'text-[rgb(var(--muted-foreground))]'}>
-            {it.label}
-          </span>
-          {i < items.length - 1 && <span className="w-6 border-t" />}
-        </li>
-      ))}
+    <ol className="flex items-center gap-3 text-sm" aria-label="Wizard progress">
+      {items.map((it, i) => {
+        const done = step > it.n;
+        const active = step === it.n;
+        return (
+          <li key={it.n} className="flex items-center gap-3">
+            <span
+              aria-current={active ? 'step' : undefined}
+              className={`flex h-7 w-7 items-center justify-center rounded-full border text-xs font-semibold transition-colors ${
+                done
+                  ? 'bg-[rgb(var(--success))] text-white border-transparent'
+                  : active
+                    ? 'bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] border-transparent'
+                    : 'text-[rgb(var(--muted-foreground))]'
+              }`}
+            >
+              {done ? '✓' : it.n}
+            </span>
+            <span
+              className={
+                active
+                  ? 'font-semibold'
+                  : done
+                    ? 'text-[rgb(var(--foreground))]'
+                    : 'text-[rgb(var(--muted-foreground))]'
+              }
+            >
+              {it.label}
+            </span>
+            {i < items.length - 1 && (
+              <span className={`hidden w-6 border-t sm:inline-block ${done ? 'border-[rgb(var(--success))]' : ''}`} />
+            )}
+          </li>
+        );
+      })}
     </ol>
   );
 }

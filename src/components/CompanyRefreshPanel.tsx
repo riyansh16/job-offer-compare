@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'sonner';
+import { Spinner } from './ui/Spinner';
 
 interface Sentiment {
   source: string;
@@ -64,7 +66,9 @@ export function CompanyRefreshPanel({
       });
       const data = (await res.json()) as { ok?: boolean; result?: unknown; error?: string };
       if (!res.ok || data.error) {
-        setMsg(data.error ?? 'Failed');
+        const errMsg = data.error ?? 'Failed';
+        setMsg(errMsg);
+        toast.error(`Stock refresh failed: ${errMsg}`);
       } else if (data.result && typeof data.result === 'object') {
         const r = data.result as {
           pointCount: number;
@@ -82,14 +86,17 @@ export function CompanyRefreshPanel({
           cagr5y: r.cagrPct,
           cagr1y: r.cagr1yPct,
         });
-        setMsg(
+        const note =
           r.cagrPct != null
-            ? `Stock refreshed. 5y CAGR ${r.cagrPct.toFixed(2)}%, 1y CAGR ${r.cagr1yPct?.toFixed(2) ?? 'n/a'}%.`
-            : 'Stock refreshed but insufficient history for CAGR.',
-        );
+            ? `5y CAGR ${r.cagrPct.toFixed(2)}%, 1y CAGR ${r.cagr1yPct?.toFixed(2) ?? 'n/a'}%`
+            : 'Insufficient history for CAGR';
+        setMsg(`Stock refreshed. ${note}.`);
+        toast.success(`Stock refreshed. ${note}.`);
       }
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : 'Failed');
+      const errMsg = e instanceof Error ? e.message : 'Failed';
+      setMsg(errMsg);
+      toast.error(`Stock refresh failed: ${errMsg}`);
     } finally {
       setBusy(false);
     }
@@ -107,17 +114,23 @@ export function CompanyRefreshPanel({
             </p>
           ) : (
             <ul className="space-y-2 text-xs">
-              {latest.map((s) => (
-                <li key={s.source} className="rounded border p-2">
-                  <div className="flex items-center justify-between font-medium">
-                    <span>{s.source}</span>
-                    <span className={s.score >= 0.05 ? 'text-[rgb(var(--success))]' : s.score <= -0.05 ? 'text-[rgb(var(--danger))]' : ''}>
-                      score {s.score.toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="text-[rgb(var(--muted-foreground))]">{s.summary}</div>
-                </li>
-              ))}
+              {latest.map((s) => {
+                const fetched = new Date(s.fetchedAt);
+                return (
+                  <li key={s.source} className="rounded border p-2">
+                    <div className="flex items-center justify-between font-medium">
+                      <span>{s.source}</span>
+                      <span className={s.score >= 0.05 ? 'text-[rgb(var(--success))]' : s.score <= -0.05 ? 'text-[rgb(var(--danger))]' : ''}>
+                        score {s.score.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="text-[rgb(var(--muted-foreground))]">{s.summary}</div>
+                    <div className="mt-1 text-[10px] text-[rgb(var(--muted-foreground))]">
+                      Refreshed {fetched.toLocaleDateString()} · n={s.sampleSize}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
@@ -131,24 +144,32 @@ export function CompanyRefreshPanel({
               className="btn-outline text-xs"
               title={ticker ? 'Refresh' : 'Set a ticker symbol to enable.'}
             >
+              {busy && <Spinner size={12} label="Refreshing" />}
               {busy ? 'Fetching…' : 'Refresh'}
             </button>
           </div>
           {ticker ? (
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <Stat
-                label="Current price"
-                value={stockInfo.currentPrice != null ? `$${stockInfo.currentPrice.toFixed(2)}` : '—'}
-              />
-              <Stat
-                label="5y CAGR"
-                value={stockInfo.cagr5y != null ? `${stockInfo.cagr5y.toFixed(2)}%` : '—'}
-              />
-              <Stat
-                label="1y CAGR"
-                value={stockInfo.cagr1y != null ? `${stockInfo.cagr1y.toFixed(2)}%` : '—'}
-              />
-            </div>
+            <>
+              <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
+                <Stat
+                  label="Current price"
+                  value={stockInfo.currentPrice != null ? `$${stockInfo.currentPrice.toFixed(2)}` : '—'}
+                />
+                <Stat
+                  label="5y CAGR"
+                  value={stockInfo.cagr5y != null ? `${stockInfo.cagr5y.toFixed(2)}%` : '—'}
+                />
+                <Stat
+                  label="1y CAGR"
+                  value={stockInfo.cagr1y != null ? `${stockInfo.cagr1y.toFixed(2)}%` : '—'}
+                />
+              </div>
+              {stockInfo.lastDate && (
+                <p className="text-[11px] text-[rgb(var(--muted-foreground))]">
+                  {stockInfo.pointCount.toLocaleString()} price points · last {new Date(stockInfo.lastDate).toLocaleDateString()}
+                </p>
+              )}
+            </>
           ) : (
             <p className="text-xs text-[rgb(var(--muted-foreground))]">
               Set a ticker symbol on this company to enable stock CAGR.
@@ -161,7 +182,7 @@ export function CompanyRefreshPanel({
           )}
         </div>
       </div>
-      {msg && <p className="text-xs text-[rgb(var(--muted-foreground))]">{msg}</p>}
+      {msg && <p className="text-xs text-[rgb(var(--muted-foreground))]" role="status">{msg}</p>}
     </section>
   );
 }

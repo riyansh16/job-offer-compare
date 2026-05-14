@@ -54,7 +54,7 @@ export function ComparisonResults({ snapshot }: { snapshot: ComparisonResult }) 
             <li key={i}>• {r}</li>
           ))}
         </ul>
-        <ol className="grid gap-2 md:grid-cols-3">
+        <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {ranked.map((r, i) => (
             <li
               key={r.offerId}
@@ -82,7 +82,7 @@ export function ComparisonResults({ snapshot }: { snapshot: ComparisonResult }) 
 
       <section className="card">
         <h2 className="mb-3 font-semibold">Per-metric profile</h2>
-        <div className="h-96 w-full">
+        <div className="h-72 w-full sm:h-96">
           <ResponsiveContainer>
             <RadarChart data={radarData}>
               <PolarGrid />
@@ -98,23 +98,24 @@ export function ComparisonResults({ snapshot }: { snapshot: ComparisonResult }) 
                   fillOpacity={0.25}
                 />
               ))}
-              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Legend wrapperStyle={{ fontSize: 11 }} verticalAlign="bottom" />
               <Tooltip />
             </RadarChart>
           </ResponsiveContainer>
         </div>
       </section>
 
-      <section className="card overflow-x-auto">
+      <section className="card">
         <h2 className="mb-3 font-semibold">Detailed breakdown</h2>
         <p className="mb-3 text-xs text-[rgb(var(--muted-foreground))]">
           Money values shown in each offer&apos;s native currency, as you entered them.
           Each metric is normalized 0–100 across offers, then weighted to produce the total score.
         </p>
-        <table className="w-full text-sm">
+        <div className="relative -mx-6 overflow-x-auto px-6">
+          <table className="w-full min-w-[600px] text-sm">
           <thead>
             <tr className="border-b text-left">
-              <th className="py-2 pr-3">Metric</th>
+              <th className="sticky left-0 z-10 bg-[rgb(var(--card))] py-2 pr-3">Metric</th>
               <th className="py-2 pr-3 text-right">Weight</th>
               {ranked.map((r) => (
                 <th key={r.offerId} className="py-2 px-3 text-right">
@@ -131,7 +132,7 @@ export function ComparisonResults({ snapshot }: { snapshot: ComparisonResult }) 
           <tbody>
             {availableMetricKeys.map((k) => (
               <tr key={k} className="border-b last:border-0">
-                <td className="py-2 pr-3">{METRIC_LABELS[k]}</td>
+                <td className="sticky left-0 z-10 bg-[rgb(var(--card))] py-2 pr-3">{METRIC_LABELS[k]}</td>
                 <td className="py-2 pr-3 text-right">{formatPct(snapshot.weights[k] ?? 0, 0)}</td>
                 {ranked.map((r) => {
                   const m = r.metrics[k];
@@ -173,14 +174,15 @@ export function ComparisonResults({ snapshot }: { snapshot: ComparisonResult }) 
               </tr>
             ))}
             <tr className="font-semibold">
-              <td className="py-2 pr-3">Total score</td>
+              <td className="sticky left-0 z-10 bg-[rgb(var(--card))] py-2 pr-3">Total score</td>
               <td className="py-2 pr-3 text-right">100</td>
               {ranked.map((r) => (
                 <td key={r.offerId} className="py-2 px-3 text-right">{r.totalScore.toFixed(1)}</td>
               ))}
             </tr>
           </tbody>
-        </table>
+          </table>
+        </div>
       </section>
     </div>
   );

@@ -24,7 +24,7 @@ export default async function Home() {
       </section>
 
       {/* What you get */}
-      <section className="grid gap-6 md:grid-cols-3">
+      <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {[
           {
             title: 'Beyond base salary',
@@ -78,7 +78,7 @@ export default async function Home() {
       {/* What\u2019s in the score */}
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">What goes into the score</h2>
-        <div className="grid gap-3 text-sm md:grid-cols-3">
+        <div className="grid gap-3 text-sm sm:grid-cols-3">
           <div className="card">
             <div className="mb-1 text-xs font-semibold uppercase text-[rgb(var(--muted-foreground))]">
               Compensation

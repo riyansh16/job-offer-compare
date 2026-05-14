@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { getAdminEmail } from '@/lib/admin';
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 
 /**
  * Private admin stats page. Returns 404 to anyone whose email isn't in
@@ -54,6 +55,13 @@ export default async function AdminStatsPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Dashboard', href: '/dashboard' },
+          { label: 'Admin', href: '/admin/stats' },
+          { label: 'Usage stats' },
+        ]}
+      />
       <header>
         <h1 className="text-2xl font-semibold">Admin · Usage stats</h1>
         <p className="text-sm text-[rgb(var(--muted-foreground))]">
