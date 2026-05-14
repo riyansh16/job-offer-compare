@@ -64,6 +64,18 @@ body {
   .badge {
     @apply inline-flex items-center rounded-full bg-[rgb(var(--muted))] px-2.5 py-0.5 text-xs font-medium text-[rgb(var(--muted-foreground))];
   }
+  .link {
+    @apply text-[rgb(var(--primary))] underline underline-offset-2 hover:opacity-80;
+  }
+  /* Long-form prose pages (privacy, terms). Tweaks default heading sizes
+     for readability without pulling in @tailwindcss/typography. */
+  .prose-app h2 {
+    @apply mt-6 text-lg font-semibold text-[rgb(var(--foreground))];
+  }
+  .prose-app p,
+  .prose-app li {
+    @apply leading-relaxed;
+  }
 }
 @tailwind base;
 @tailwind components;
