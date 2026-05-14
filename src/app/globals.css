@@ -105,6 +105,19 @@ body {
   .field-error {
     @apply mt-1 text-xs text-[rgb(var(--danger))];
   }
+  .link {
+    @apply text-[rgb(var(--primary))] underline underline-offset-2 hover:opacity-80;
+  }
+  /* Long-form prose pages (privacy, terms). Tweaks default heading sizes
+     for readability without pulling in @tailwindcss/typography for these
+     pages — react-markdown content uses the typography plugin instead. */
+  .prose-app h2 {
+    @apply mt-6 text-lg font-semibold text-[rgb(var(--foreground))];
+  }
+  .prose-app p,
+  .prose-app li {
+    @apply leading-relaxed;
+  }
 }
 
 @layer utilities {

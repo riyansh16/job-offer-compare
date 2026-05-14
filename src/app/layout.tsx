@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { TopNav } from '@/components/TopNav';
+import { Footer } from '@/components/Footer';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { AppToaster } from '@/components/AppToaster';
 
@@ -32,15 +33,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className="min-h-screen antialiased">
+      <body className="flex min-h-screen flex-col antialiased">
         <ThemeProvider>
           <a href="#main" className="skip-link">
             Skip to content
           </a>
           <TopNav />
-          <main id="main" className="mx-auto max-w-6xl px-4 py-8">
+          <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
             {children}
           </main>
+          <Footer />
           <AppToaster />
         </ThemeProvider>
       </body>
