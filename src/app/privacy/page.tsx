@@ -62,8 +62,8 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Offer details you enter.</strong> Company, role, base
-            salary, bonus, equity grants, sign-on bonus, benefits, work mode,
-            and any free-text notes. This data is the product.
+            salary, bonus, equity grants, sign-on bonus, benefits, and work
+            mode. This data is the product.
           </li>
           <li>
             <strong>Comparisons and AI insights you generate.</strong> The

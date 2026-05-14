@@ -1,8 +1,11 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { OfferForm } from '@/components/OfferForm';
 import { DeleteOfferButton } from '@/components/DeleteOfferButton';
+import { OfferEditToggle } from '@/components/OfferEditToggle';
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 import { formatMoney } from '@/lib/utils';
 
 export default async function CurrentRolePage() {
@@ -37,6 +40,12 @@ export default async function CurrentRolePage() {
   if (!current) {
     return (
       <div className="space-y-4">
+        <Breadcrumbs
+          items={[
+            { label: 'Dashboard', href: '/dashboard' },
+            { label: 'Current role' },
+          ]}
+        />
         <header>
           <h1 className="text-2xl font-semibold">Your current role</h1>
           <p className="text-sm text-[rgb(var(--muted-foreground))]">
@@ -62,61 +71,79 @@ export default async function CurrentRolePage() {
     vest = { years: 4, cliffMonths: 12, cadence: 'quarterly' };
   }
 
+  const summaryView = (
+    <section className="card grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+      <Stat label={`Base (${c.currency})`} value={formatMoney(c.baseSalary, c.currency)} />
+      <Stat label="Bonus %" value={`${c.targetBonusPct}%`} />
+      <Stat label="Sign-on" value={formatMoney(c.signOnBonus, c.currency)} />
+      <Stat label="Equity / yr" value={formatMoney(c.equityTotal, c.currency)} />
+      <Stat label="Benefits" value={formatMoney(c.benefitsValueAnnual, c.currency)} />
+      <Stat label="Mode" value={c.workMode} />
+      <Stat label="Growth/fit" value={`${c.qualitativeScore}/100`} />
+      <Stat
+        label="Years of exp."
+        value={user?.yearsExperience != null ? String(user.yearsExperience) : '—'}
+      />
+    </section>
+  );
+
+  const editForm = (
+    <section className="card">
+      <h2 className="mb-3 font-semibold">Edit current role</h2>
+      <OfferForm
+        mode="current"
+        companies={companies.map((c) => ({ id: c.id, name: c.name }))}
+        initial={{
+          id: current.id,
+          companyId: current.companyId,
+          title: current.title,
+          level: current.level ?? '',
+          location: current.location,
+          isCurrent: true,
+          baseSalary: c.baseSalary,
+          currency: c.currency,
+          targetBonusPct: c.targetBonusPct,
+          signOnBonus: c.signOnBonus,
+          equityTotal: c.equityTotal,
+          benefitsValueAnnual: c.benefitsValueAnnual,
+          ptoDays: c.ptoDays,
+          workMode: c.workMode,
+          commuteCostMonthly: c.commuteCostMonthly,
+          qualitativeScore: c.qualitativeScore,
+          vestYears: vest.years,
+          vestCliffMonths: vest.cliffMonths,
+          vestCadence: vest.cadence,
+          vestBackloaded: vest.backloaded,
+          yearsExperience: user?.yearsExperience ?? undefined,
+        }}
+      />
+    </section>
+  );
+
   return (
     <div className="space-y-6">
-      <header className="flex items-start justify-between gap-3">
+      <Breadcrumbs
+        items={[
+          { label: 'Dashboard', href: '/dashboard' },
+          { label: 'Current role' },
+        ]}
+      />
+      <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Your current role</h1>
           <p className="text-sm text-[rgb(var(--muted-foreground))]">
             <span className="badge bg-[rgb(var(--primary))]/10 text-[rgb(var(--primary))]">Current</span>{' '}
             {current.company.name} · {current.title}
-            {current.level ? ` · ${current.level}` : ''} · {current.location}
+            {current.level ? ` · ${current.level}` : ''} · {current.location} ·{' '}
+            <Link href={`/companies/${current.company.slug}`} className="underline">
+              View company
+            </Link>
           </p>
         </div>
         <DeleteOfferButton offerId={current.id} />
       </header>
 
-      <section className="card grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label={`Base (${c.currency})`} value={formatMoney(c.baseSalary, c.currency)} />
-        <Stat label="Bonus %" value={`${c.targetBonusPct}%`} />
-        <Stat label="Equity (total)" value={formatMoney(c.equityTotal, c.currency)} />
-        <Stat label="Benefits" value={formatMoney(c.benefitsValueAnnual, c.currency)} />
-        <Stat label="Mode" value={c.workMode} />
-        <Stat label="Growth/fit" value={`${c.qualitativeScore}/100`} />
-      </section>
-
-      <section className="card">
-        <h2 className="mb-3 font-semibold">Edit current role</h2>
-        <OfferForm
-          mode="current"
-          companies={companies.map((c) => ({ id: c.id, name: c.name }))}
-          initial={{
-            id: current.id,
-            companyId: current.companyId,
-            title: current.title,
-            level: current.level ?? '',
-            location: current.location,
-            isCurrent: true,
-            status: current.status,
-            notes: current.notes ?? '',
-            baseSalary: c.baseSalary,
-            currency: c.currency,
-            targetBonusPct: c.targetBonusPct,
-            signOnBonus: c.signOnBonus,
-            equityTotal: c.equityTotal,
-            benefitsValueAnnual: c.benefitsValueAnnual,
-            ptoDays: c.ptoDays,
-            workMode: c.workMode,
-            commuteCostMonthly: c.commuteCostMonthly,
-            qualitativeScore: c.qualitativeScore,
-            vestYears: vest.years,
-            vestCliffMonths: vest.cliffMonths,
-            vestCadence: vest.cadence,
-            vestBackloaded: vest.backloaded,
-            yearsExperience: user?.yearsExperience ?? undefined,
-          }}
-        />
-      </section>
+      <OfferEditToggle summary={summaryView} edit={editForm} />
     </div>
   );
 }
@@ -124,8 +151,8 @@ export default async function CurrentRolePage() {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-wide text-[rgb(var(--muted-foreground))]">{label}</div>
-      <div className="font-semibold">{value}</div>
+      <div className="text-sm text-[rgb(var(--muted-foreground))]">{label}</div>
+      <div className="text-lg font-semibold">{value}</div>
     </div>
   );
 }

@@ -262,6 +262,68 @@ function expandDesignation(d: string): string[] {
     return [...out];
   }
 
+  // Adobe-family: CS1 / CS2 / CS3 / CS4 ↔ "Computer Scientist N".
+  const cs = d.match(/^cs[-\s]?(\d|i{1,3}|iv|v)$/i);
+  if (cs) {
+    const num = cs[1].toLowerCase();
+    addRoleNumVariants('cs', num);
+    addRoleNumVariants('computer scientist', num);
+    return [...out];
+  }
+  const csLong = d.match(/^computer\s+scientist\s*[-\s]?\s*(\d|i{1,3}|iv|v)$/i);
+  if (csLong) {
+    const num = csLong[1].toLowerCase();
+    addRoleNumVariants('cs', num);
+    addRoleNumVariants('computer scientist', num);
+    return [...out];
+  }
+
+  // Salesforce/VMware MTS ladder.
+  const mts = d.match(/^(a|s|p|l)?mts$/i);
+  if (mts) {
+    const prefix = (mts[1] ?? '').toLowerCase();
+    const longRank =
+      prefix === 'a' ? 'associate '
+      : prefix === 's' ? 'senior '
+      : prefix === 'p' ? 'principal '
+      : prefix === 'l' ? 'lead '
+      : '';
+    out.add(`${prefix}mts`);
+    out.add(`${longRank}member of technical staff`.trim());
+    out.add(`${longRank}member of the technical staff`.trim());
+    return [...out];
+  }
+  const mtsLong = d.match(
+    /^(associate\s+|senior\s+|principal\s+|lead\s+)?member\s+of\s+(?:the\s+)?technical\s+staff$/i,
+  );
+  if (mtsLong) {
+    const rank = (mtsLong[1] ?? '').trim().toLowerCase();
+    const code =
+      rank === 'associate' ? 'amts'
+      : rank === 'senior' ? 'smts'
+      : rank === 'principal' ? 'pmts'
+      : rank === 'lead' ? 'lmts'
+      : 'mts';
+    out.add(code);
+    out.add(`${rank ? rank + ' ' : ''}member of technical staff`);
+    out.add(`${rank ? rank + ' ' : ''}member of the technical staff`);
+    return [...out];
+  }
+
+  // Generic "Associate <role>" / "Junior <role>".
+  const associate = d.match(/^(associate|junior)\s+(engineer|developer|software\s+engineer|software\s+developer)$/i);
+  if (associate) {
+    const role = associate[2].toLowerCase().replace(/\s+/g, ' ');
+    out.add(`${associate[1].toLowerCase()} ${role}`);
+    out.add(`associate ${role}`);
+    out.add(`junior ${role}`);
+    if (role === 'engineer' || role === 'developer') {
+      out.add(`associate software ${role}`);
+      out.add(`junior software ${role}`);
+    }
+    return [...out];
+  }
+
   return [...out];
 }
 

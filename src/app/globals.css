@@ -120,6 +120,80 @@ body {
   }
 }
 
+/*
+ * Custom range-slider styling. Vendor prefixes split the styling: WebKit
+ * needs ::-webkit-slider-thumb / ::-webkit-slider-runnable-track, Firefox
+ * needs ::-moz-range-thumb / ::-moz-range-track. Track gradient renders the
+ * filled portion (left of thumb) in primary colour; the rest stays muted.
+ * The component sets `--range-pct` on the inline style so we can paint the
+ * fill without JS-controlled CSS classes.
+ */
+.range-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 1.5rem;
+  background: transparent;
+  cursor: pointer;
+}
+.range-slider:focus {
+  outline: none;
+}
+.range-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgb(var(--primary) / 0.35);
+}
+.range-slider:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 3px rgb(var(--primary) / 0.35);
+}
+.range-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    rgb(var(--primary)) 0%,
+    rgb(var(--primary)) var(--range-pct, 0%),
+    rgb(var(--muted)) var(--range-pct, 0%),
+    rgb(var(--muted)) 100%
+  );
+}
+.range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -6px; /* center thumb on 6px track */
+  height: 18px;
+  width: 18px;
+  border-radius: 9999px;
+  background: rgb(var(--card));
+  border: 2px solid rgb(var(--primary));
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
+  transition: transform 80ms ease;
+}
+.range-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+.range-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: rgb(var(--muted));
+}
+.range-slider::-moz-range-progress {
+  height: 6px;
+  border-radius: 9999px;
+  background: rgb(var(--primary));
+}
+.range-slider::-moz-range-thumb {
+  height: 18px;
+  width: 18px;
+  border-radius: 9999px;
+  background: rgb(var(--card));
+  border: 2px solid rgb(var(--primary));
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
+  transition: transform 80ms ease;
+}
+.range-slider::-moz-range-thumb:hover {
+  transform: scale(1.1);
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;

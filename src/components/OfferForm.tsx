@@ -21,8 +21,6 @@ export interface OfferInitial {
   level?: string;
   location?: string;
   isCurrent?: boolean;
-  status?: string;
-  notes?: string;
   baseSalary?: number;
   currency?: string;
   targetBonusPct?: number;
@@ -76,9 +74,8 @@ export function OfferForm({
         startTransition(async () => {
           setError(null);
           if (isCurrentMode) {
-            // Current role is stored as a JobOffer with isCurrent=true and status=Active.
+            // Current role is stored as a JobOffer with isCurrent=true.
             formData.set('isCurrent', 'on');
-            formData.set('status', 'Active');
           }
           const validation = validateFormData(offerSchema, formData);
           if (!validation.ok) {
@@ -204,23 +201,12 @@ export function OfferForm({
           </div>
         )}
         {!isCurrentMode && (
-          <>
-            <div>
-              <label htmlFor="status" className="label">Status</label>
-              <select id="status" name="status" defaultValue={initial?.status ?? 'Active'} className="input">
-                <option>Active</option>
-                <option>Accepted</option>
-                <option>Rejected</option>
-                <option>Archived</option>
-              </select>
-            </div>
-            <div className="flex items-end">
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="isCurrent" defaultChecked={initial?.isCurrent} />
-                Also mark as my current job (baseline)
-              </label>
-            </div>
-          </>
+          <div className="flex items-end">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="isCurrent" defaultChecked={initial?.isCurrent} />
+              Also mark as my current job (baseline)
+            </label>
+          </div>
         )}
       </fieldset>
 
@@ -270,7 +256,7 @@ export function OfferForm({
           label="Benefits value (annual)"
           name="benefitsValueAnnual"
           defaultValue={initial?.benefitsValueAnnual ?? 0}
-          hint="Annualized $ value of health, 401k match, perks etc. Skip if unknown."
+          hint="Annualized value of health insurance, retirement contributions, gratuity, perks. Skip if unknown."
           error={fieldErrors.benefitsValueAnnual}
           onChange={() => clearFieldError('benefitsValueAnnual')}
         />
@@ -299,15 +285,6 @@ export function OfferForm({
           error={fieldErrors.qualitativeScore}
           onChange={() => clearFieldError('qualitativeScore')}
         />
-        <p className="-mt-2 text-xs text-[rgb(var(--muted-foreground))] sm:col-span-2 lg:col-span-3">
-          All money fields use the currency selected above. Comparisons auto-convert via
-          live ECB rates (Frankfurter API, free).
-        </p>
-      </fieldset>
-
-      <fieldset className="card">
-        <legend className="px-1 text-sm font-semibold">Notes (optional)</legend>
-        <textarea name="notes" defaultValue={initial?.notes} className="input min-h-32" />
       </fieldset>
 
       {error && (

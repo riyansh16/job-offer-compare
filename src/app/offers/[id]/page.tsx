@@ -48,7 +48,6 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
       <Stat label="Benefits" value={formatMoney(c.benefitsValueAnnual, c.currency)} />
       <Stat label="Mode" value={c.workMode} />
       <Stat label="Growth/fit" value={`${c.qualitativeScore}/100`} />
-      <Stat label="Status" value={offer.status} />
     </section>
   );
 
@@ -64,8 +63,6 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
           level: offer.level ?? '',
           location: offer.location,
           isCurrent: offer.isCurrent,
-          status: offer.status,
-          notes: offer.notes ?? '',
           baseSalary: c.baseSalary,
           currency: c.currency,
           targetBonusPct: c.targetBonusPct,
@@ -98,7 +95,8 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
         <div>
           <h1 className="text-2xl font-semibold">{offer.company.name}</h1>
           <p className="text-sm text-[rgb(var(--muted-foreground))]">
-            {offer.title} · {offer.location} ·{' '}
+            {offer.title}
+            {offer.level ? ` · ${offer.level}` : ''} · {offer.location} ·{' '}
             <Link href={`/companies/${offer.company.slug}`} className="underline">
               View company
             </Link>
@@ -138,8 +136,8 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-wide text-[rgb(var(--muted-foreground))]">{label}</div>
-      <div className="font-semibold">{value}</div>
+      <div className="text-sm text-[rgb(var(--muted-foreground))]">{label}</div>
+      <div className="text-lg font-semibold">{value}</div>
     </div>
   );
 }

@@ -1,11 +1,7 @@
 import Link from 'next/link';
-import { auth } from '@/lib/auth';
-import { redirect } from 'next/navigation';
+import { AlertTriangle } from 'lucide-react';
 
-export default async function Home() {
-  const session = await auth();
-  if (session?.user) redirect('/dashboard');
-
+export default function Home() {
   return (
     <div className="space-y-16 py-12">
       {/* Hero */}
@@ -14,8 +10,9 @@ export default async function Home() {
           Compare your job offers, side by side.
         </h1>
         <p className="mx-auto max-w-2xl text-balance text-lg text-[rgb(var(--muted-foreground))]">
-          A private portal that ranks competing offers across compensation, equity, work-life,
-          and company reviews — with AI verdicts that cite the data instead of making it up.
+          Rank competing offers across pay, equity, work-life, and company reviews.
+          Pulls in related LeetCode comp reports for your designation and years of
+          experience. AI verdicts cite the data instead of making it up.
         </p>
         <div className="flex justify-center gap-3 pt-4">
           <Link href="/auth/signup" className="btn-primary">Get started</Link>
@@ -24,7 +21,7 @@ export default async function Home() {
       </section>
 
       {/* What you get */}
-      <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {[
           {
             title: 'Beyond base salary',
@@ -37,9 +34,14 @@ export default async function Home() {
               'Indeed ratings fetched live with source URLs, blended with Reddit & HN sentiment. Bayesian shrinkage so 6 cherry-picked reviews can’t outscore 80,000 honest ones.',
           },
           {
-            title: 'AI that cites the numbers',
+            title: 'Real comp from real people',
             body:
-              'Verdicts, trade-offs, and negotiation talking points generated from the same JSON snapshot you can see. The model is told to never invent figures.',
+              'Each comparison surfaces recent LeetCode comp reports for the same company, level, and years of experience — so you can sanity-check the offer against what others actually got.',
+          },
+          {
+            title: 'AI that grounds its verdicts',
+            body:
+              'Verdicts, trade-offs, and negotiation talking points generated from the exact numbers in your comparison — not made-up figures.',
           },
         ].map((c) => (
           <div key={c.title} className="card">
@@ -59,18 +61,15 @@ export default async function Home() {
             no number; the UI shows &quot;not available&quot; instead of guessing.
           </li>
           <li>
-            <strong className="text-[rgb(var(--foreground))]">Live data, cached sensibly.</strong>{' '}
-            Stock prices refresh every 6h. Reddit/HN sentiment every 7 days.
-            Ratings rotated through the catalog every ~30 days.
-          </li>
-          <li>
-            <strong className="text-[rgb(var(--foreground))]">India-first, INR by default.</strong>{' '}
-            Built for Indian job seekers comparing TCS / Razorpay / Microsoft India type
-            offers. International (FX) is supported as a v2 fallback.
+            <strong className="text-[rgb(var(--foreground))]">Always-fresh data.</strong>{' '}
+            Stock prices, company sentiment, and ratings refresh automatically so
+            your comparison reflects today, not last year.
           </li>
           <li>
             <strong className="text-[rgb(var(--foreground))]">Your data stays yours.</strong>{' '}
-            Self-hosted; offers, comparisons, and notes never leave your database.
+            We never sell or share it. AI insights use a privacy-respecting
+            provider — see <Link href="/privacy" className="link">Privacy</Link>{' '}
+            for the full data flow.
           </li>
         </ul>
       </section>
@@ -80,28 +79,28 @@ export default async function Home() {
         <h2 className="text-xl font-semibold">What goes into the score</h2>
         <div className="grid gap-3 text-sm sm:grid-cols-3">
           <div className="card">
-            <div className="mb-1 text-xs font-semibold uppercase text-[rgb(var(--muted-foreground))]">
+            <div className="mb-2 text-sm font-semibold">
               Compensation
             </div>
             <ul className="space-y-1">
               <li>Base salary</li>
               <li>Annual bonus (target %)</li>
               <li>Equity (annualized + growth)</li>
-              <li>Sign-on (4y amortized)</li>
+              <li>Sign-on (year 1)</li>
               <li>Benefits value</li>
             </ul>
           </div>
           <div className="card">
-            <div className="mb-1 text-xs font-semibold uppercase text-[rgb(var(--muted-foreground))]">
+            <div className="mb-2 text-sm font-semibold">
               Lifestyle
             </div>
             <ul className="space-y-1">
               <li>Work mode</li>
-              <li>Career growth / fit (0\u2013100)</li>
+              <li>Career growth / fit (0–100)</li>
             </ul>
           </div>
           <div className="card">
-            <div className="mb-1 text-xs font-semibold uppercase text-[rgb(var(--muted-foreground))]">
+            <div className="mb-2 text-sm font-semibold">
               Reviews (live, cited)
             </div>
             <ul className="space-y-1">
@@ -109,24 +108,70 @@ export default async function Home() {
               <li>Work-Life Balance</li>
               <li>Culture</li>
               <li>Management</li>
+              <li>Job Security &amp; Advancement</li>
             </ul>
           </div>
         </div>
-        <p className="text-xs text-[rgb(var(--muted-foreground))]">
-          Layoff history is shown on each company page as informational context only \u2014
-          it doesn\u2019t affect comparison scores.
-        </p>
+        <div className="flex items-start gap-3 rounded-lg border border-l-4 border-l-[rgb(var(--danger))] bg-[rgb(var(--danger))]/5 p-3 text-sm">
+          <AlertTriangle
+            size={16}
+            aria-hidden
+            className="mt-0.5 shrink-0 text-[rgb(var(--danger))]"
+          />
+          <p>
+            <strong>Layoff history is shown as context</strong> on each company page —
+            it does <em>not</em> affect comparison scores. Sourced from{' '}
+            <a
+              href="https://layoffs.fyi/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="link"
+            >
+              layoffs.fyi
+            </a>
+            .
+          </p>
+        </div>
       </section>
 
       {/* CTA */}
       <section className="card text-center">
         <h2 className="mb-2 text-xl font-semibold">Ready to rank your offers?</h2>
         <p className="mb-4 text-sm text-[rgb(var(--muted-foreground))]">
-          Add your current role + competing offers in 5 minutes. The math runs in your browser.
+          Add your offers in 5 minutes. Walk into the negotiation already knowing the answer.
         </p>
         <Link href="/auth/signup" className="btn-primary">
           Create your account
         </Link>
+      </section>
+
+      {/* Data sources */}
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold">Where the data comes from</h2>
+        <p className="text-sm text-[rgb(var(--muted-foreground))]">
+          Every number you see is sourced from a public provider. No invented stats.
+        </p>
+        <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            { data: 'Stock prices & CAGR', source: 'Yahoo Finance' },
+            { data: 'Ratings', source: 'Indeed' },
+            { data: 'Community sentiment', source: 'Reddit + Hacker News' },
+            { data: 'Layoff history', source: 'layoffs.fyi' },
+            { data: 'Compensation reports', source: 'LeetCode' },
+            { data: 'AI verdicts', source: 'Azure OpenAI' },
+          ].map(({ data, source }) => (
+            <div key={data} className="card">
+              <div className="text-xs text-[rgb(var(--muted-foreground))]">
+                Data
+              </div>
+              <div className="font-semibold">{data}</div>
+              <div className="mt-2 text-xs text-[rgb(var(--muted-foreground))]">
+                Source
+              </div>
+              <div className="text-sm">{source}</div>
+            </div>
+          ))}
+        </div>
       </section>
     </div>
   );

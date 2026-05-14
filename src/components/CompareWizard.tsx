@@ -240,25 +240,37 @@ export function CompareWizard({
             </p>
             {METRIC_KEYS.map((k) => {
               const v = Math.round(weights?.[k] ?? 0);
+              const pct = (v / 10) * 100;
               return (
-                <div key={k} className="grid grid-cols-12 items-center gap-2 text-sm">
-                  <label htmlFor={`weight-${k}`} className="col-span-5">
+                <div
+                  key={k}
+                  className="grid grid-cols-12 items-center gap-3 text-sm"
+                >
+                  <label htmlFor={`weight-${k}`} className="col-span-4">
                     {METRIC_LABELS[k]}
                   </label>
-                  <input
-                    id={`weight-${k}`}
-                    type="range"
-                    min={0}
-                    max={10}
-                    step={1}
-                    value={weights?.[k] ?? 0}
-                    onChange={(e) => setWeight(k, Number(e.target.value))}
-                    className="col-span-5"
-                    aria-valuetext={`${v} (${weightLabel(v)})`}
-                  />
-                  <span className="col-span-2 text-right text-[11px]">
-                    <span className="font-mono">{v}</span>{' '}
-                    <span className="text-[rgb(var(--muted-foreground))]">{weightLabel(v)}</span>
+                  <div className="col-span-7">
+                    <input
+                      id={`weight-${k}`}
+                      type="range"
+                      min={0}
+                      max={10}
+                      step={1}
+                      value={weights?.[k] ?? 0}
+                      onChange={(e) => setWeight(k, Number(e.target.value))}
+                      className="range-slider w-full"
+                      style={{ ['--range-pct' as string]: `${pct}%` }}
+                      aria-valuetext={`${v} (${weightLabel(v)})`}
+                    />
+                  </div>
+                  <span
+                    className={`col-span-1 min-w-[1.75rem] rounded-md px-1.5 py-0.5 text-center font-mono text-xs font-semibold ${
+                      v === 0
+                        ? 'bg-[rgb(var(--muted))] text-[rgb(var(--muted-foreground))]'
+                        : 'bg-[rgb(var(--primary))]/10 text-[rgb(var(--primary))]'
+                    }`}
+                  >
+                    {v}
                   </span>
                 </div>
               );

@@ -67,7 +67,7 @@ export default async function DashboardPage() {
           >
             <div className="flex items-start justify-between gap-2">
               <div>
-                <div className="font-semibold">{current.company.name}</div>
+                <div className="text-lg font-semibold">{current.company.name}</div>
                 <div className="text-sm text-[rgb(var(--muted-foreground))]">
                   {current.title} {current.level ? `· ${current.level}` : ''} · {current.location}
                 </div>
@@ -75,7 +75,7 @@ export default async function DashboardPage() {
               <span className="badge bg-[rgb(var(--primary))]/10 text-[rgb(var(--primary))]">Current</span>
             </div>
             {current.compensation && (
-              <div className="mt-3 grid grid-cols-4 gap-2 text-xs">
+              <div className="mt-3 grid grid-cols-4 gap-2">
                 <Stat label={`Base (${current.compensation.currency})`} value={formatMoney(current.compensation.baseSalary, current.compensation.currency, { compact: true })} />
                 <Stat label="Bonus %" value={`${current.compensation.targetBonusPct}%`} />
                 <Stat label="Equity" value={formatMoney(current.compensation.equityTotal, current.compensation.currency, { compact: true })} />
@@ -120,15 +120,14 @@ export default async function DashboardPage() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <div className="font-semibold">{o.company.name}</div>
+                    <div className="text-lg font-semibold">{o.company.name}</div>
                     <div className="text-sm text-[rgb(var(--muted-foreground))]">
                       {o.title} {o.level ? `· ${o.level}` : ''} · {o.location}
                     </div>
                   </div>
-                  <span className="badge">{o.status}</span>
                 </div>
                 {o.compensation && (
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                  <div className="mt-3 grid grid-cols-3 gap-2">
                     <Stat label={`Base (${o.compensation.currency})`} value={formatMoney(o.compensation.baseSalary, o.compensation.currency, { compact: true })} />
                     <Stat label="Equity" value={formatMoney(o.compensation.equityTotal, o.compensation.currency, { compact: true })} />
                     <Stat label="Sign-on" value={formatMoney(o.compensation.signOnBonus, o.compensation.currency, { compact: true })} />
@@ -190,8 +189,8 @@ export default async function DashboardPage() {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-wide text-[rgb(var(--muted-foreground))]">{label}</div>
-      <div className="font-semibold">{value}</div>
+      <div className="text-xs text-[rgb(var(--muted-foreground))]">{label}</div>
+      <div className="text-sm font-semibold">{value}</div>
     </div>
   );
 }

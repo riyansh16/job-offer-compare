@@ -142,7 +142,7 @@ export function AiInsightsPanel({ comparisonId }: { comparisonId: string }) {
                     </div>
                   ) : !errorMsg ? (
                     <p className="text-sm text-[rgb(var(--muted-foreground))]">
-                      Click <strong>Generate</strong> below to fetch this insight.
+                      Loading…
                     </p>
                   ) : null}
 
@@ -156,28 +156,6 @@ export function AiInsightsPanel({ comparisonId }: { comparisonId: string }) {
                       >
                         <RefreshCw size={12} aria-hidden />
                         Retry
-                      </button>
-                    </div>
-                  )}
-
-                  {!errorMsg && (
-                    <div className="mt-2 text-right">
-                      <button
-                        onClick={() => fetchInsight(kind, true)}
-                        disabled={isLoading}
-                        className="btn-outline text-xs"
-                      >
-                        {isLoading ? (
-                          <>
-                            <Spinner size={12} label="Working" />
-                            Working…
-                          </>
-                        ) : (
-                          <>
-                            <RefreshCw size={12} aria-hidden />
-                            {hasContent ? 'Regenerate' : 'Generate'}
-                          </>
-                        )}
                       </button>
                     </div>
                   )}

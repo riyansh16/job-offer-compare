@@ -21,7 +21,7 @@ export async function TopNav() {
   return (
     <nav className="sticky top-0 z-30 border-b bg-[rgb(var(--card))]/80 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-4">
-        <Link href={user ? '/dashboard' : '/'} className="flex items-center gap-2 font-semibold">
+        <Link href="/" className="flex items-center gap-2 font-semibold">
           <span className="inline-block h-6 w-6 rounded bg-[rgb(var(--primary))]" />
           <span className="hidden sm:inline">Job Offer Compare</span>
           <span className="sm:hidden">JOC</span>
@@ -30,9 +30,7 @@ export async function TopNav() {
           {user ? (
             <>
               <NavLinks items={navItems} />
-              <span className="hidden text-[rgb(var(--muted-foreground))] lg:inline">
-                {user.email}
-              </span>
+              <UserBadge name={user.name ?? null} email={user.email ?? null} image={user.image ?? null} />
               <ThemeToggle />
               <form
                 action={async () => {
@@ -59,5 +57,48 @@ export async function TopNav() {
         </div>
       </div>
     </nav>
+  );
+}
+
+/**
+ * Shows the user's avatar (Google profile picture if available, otherwise a
+ * coloured circle with their initial). Email shown next to it on `lg+` only.
+ * Plain `<img>` keeps `next.config.mjs` simpler — no remotePatterns needed
+ * for a 28px image hosted on Google's CDN.
+ */
+function UserBadge({
+  name,
+  email,
+  image,
+}: {
+  name: string | null;
+  email: string | null;
+  image: string | null;
+}) {
+  const label = name ?? email ?? 'Account';
+  const initial = (name?.trim()?.[0] ?? email?.trim()?.[0] ?? '?').toUpperCase();
+  return (
+    <span className="flex items-center gap-2" title={label}>
+      {image ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={image}
+          alt=""
+          referrerPolicy="no-referrer"
+          className="h-7 w-7 rounded-full border border-[rgb(var(--border))]"
+        />
+      ) : (
+        <span
+          aria-hidden
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-[rgb(var(--primary))] text-xs font-semibold text-[rgb(var(--primary-foreground))]"
+        >
+          {initial}
+        </span>
+      )}
+      <span className="sr-only">Signed in as {label}</span>
+      {email && (
+        <span className="hidden text-[rgb(var(--muted-foreground))] lg:inline">{email}</span>
+      )}
+    </span>
   );
 }

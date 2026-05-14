@@ -89,9 +89,9 @@ export default function TermsPage() {
 
       <Section title="5. Your content">
         <p>
-          You retain ownership of the offer details, comparisons, and notes
-          you create. You grant us a limited license to store, process, and
-          display this content solely so we can provide the service to you
+          You retain ownership of the offer details and comparisons you create.
+          You grant us a limited license to store, process, and display this
+          content solely so we can provide the service to you
           (it would be hard to compute a comparison otherwise).
         </p>
         <p>

@@ -84,8 +84,11 @@ export function buildPrompt(kind: AiInsightKind, input: PromptInput): PromptSpec
         system: SYSTEM,
         user:
           base +
-          'Write a 5-7 sentence "Verdict" explaining which offer ranks #1 and the top 2-3 metrics ' +
-          'driving its lead, citing specific INR deltas (using ₹L / ₹Cr) and score deltas vs the runner-up.',
+          'Write a "Verdict" with this structure:\n' +
+          '- One opening sentence naming the #1 offer and its total score.\n' +
+          '- A bullet list of 3-5 concrete reasons it leads, each citing a specific INR delta ' +
+          '(using ₹L / ₹Cr) or score delta vs the runner-up.\n' +
+          '- One closing sentence on the main caveat (if any).',
         maxTokens: 500,
       };
     case 'Tradeoffs':

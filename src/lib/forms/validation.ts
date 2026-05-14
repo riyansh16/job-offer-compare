@@ -19,7 +19,6 @@ export const offerSchema = z.object({
   title: z.string().trim().min(1, 'Job title is required'),
   location: z.string().trim().min(1, 'Location is required'),
   level: z.string().optional(),
-  status: z.string().optional(),
   currency: z.string().optional(),
   workMode: z.string().optional(),
   baseSalary: optionalPositive,
@@ -40,7 +39,6 @@ export const offerSchema = z.object({
   yearsExperience: z
     .union([z.literal(''), z.coerce.number().min(0, 'Cannot be negative').max(60, 'Likely a typo')])
     .optional(),
-  notes: z.string().optional(),
 });
 
 export type OfferFormValues = z.infer<typeof offerSchema>;
