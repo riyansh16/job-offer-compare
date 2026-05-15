@@ -16,22 +16,18 @@ export function CompanyRefreshPanel({
   companyId,
   ticker,
   sentiments,
-  priceCount,
-  firstPriceDate,
-  lastPriceDate,
   initialCurrentPrice,
   initialCagr5y,
   initialCagr1y,
+  initialUpdatedAt,
 }: {
   companyId: string;
   ticker: string | null;
   sentiments: Sentiment[];
-  priceCount: number;
-  firstPriceDate: string | null;
-  lastPriceDate: string | null;
   initialCurrentPrice?: number | null;
   initialCagr5y?: number | null;
   initialCagr1y?: number | null;
+  initialUpdatedAt?: string | null;
 }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -40,19 +36,15 @@ export function CompanyRefreshPanel({
   // refresh button to avoid letting any signed-in user hammer Reddit / HN.
   const latest = sentiments;
   const [stockInfo, setStockInfo] = useState<{
-    pointCount: number;
-    firstDate: string | null;
-    lastDate: string | null;
     currentPrice: number | null;
     cagr5y: number | null;
     cagr1y: number | null;
+    updatedAt: string | null;
   }>({
-    pointCount: priceCount,
-    firstDate: firstPriceDate,
-    lastDate: lastPriceDate,
     currentPrice: initialCurrentPrice ?? null,
     cagr5y: initialCagr5y ?? null,
     cagr1y: initialCagr1y ?? null,
+    updatedAt: initialUpdatedAt ?? null,
   });
 
   async function refreshStock() {
@@ -71,20 +63,16 @@ export function CompanyRefreshPanel({
         toast.error(`Stock refresh failed: ${errMsg}`);
       } else if (data.result && typeof data.result === 'object') {
         const r = data.result as {
-          pointCount: number;
-          startDate: string;
-          endDate: string;
           cagrPct: number | null;
           cagr1yPct: number | null;
-          currentPrice: number;
+          currentPrice: number | null;
+          updatedAt: string | null;
         };
         setStockInfo({
-          pointCount: r.pointCount,
-          firstDate: r.startDate,
-          lastDate: r.endDate,
           currentPrice: r.currentPrice,
           cagr5y: r.cagrPct,
           cagr1y: r.cagr1yPct,
+          updatedAt: r.updatedAt,
         });
         const note =
           r.cagrPct != null
@@ -164,9 +152,9 @@ export function CompanyRefreshPanel({
                   value={stockInfo.cagr1y != null ? `${stockInfo.cagr1y.toFixed(2)}%` : '—'}
                 />
               </div>
-              {stockInfo.lastDate && (
+              {stockInfo.updatedAt && (
                 <p className="text-[11px] text-[rgb(var(--muted-foreground))]">
-                  {stockInfo.pointCount.toLocaleString()} price points · last {new Date(stockInfo.lastDate).toLocaleDateString()}
+                  Last refreshed: {new Date(stockInfo.updatedAt).toLocaleString()}
                 </p>
               )}
             </>
@@ -175,9 +163,9 @@ export function CompanyRefreshPanel({
               Set a ticker symbol on this company to enable stock CAGR.
             </p>
           )}
-          {ticker && stockInfo.pointCount === 0 && (
+          {ticker && stockInfo.updatedAt == null && (
             <p className="text-[11px] text-[rgb(var(--muted-foreground))]">
-              No price history cached yet. Click Refresh.
+              No stock data cached yet. Click Refresh.
             </p>
           )}
         </div>

@@ -5,7 +5,6 @@ import {
   type OfferInput,
   type Weights,
 } from '../engine';
-import { computeHistoricalCagr } from './equity';
 import { computeRatingAspects } from '../providers/review';
 import { getStockCagr } from '../providers/stockPrice';
 import { refreshCompanySentiment } from '../providers/review';
@@ -69,25 +68,20 @@ export async function runComparisonForOffers(
     .map((id) => refreshedOffers.find((o) => o.id === id))
     .filter((o): o is (typeof refreshedOffers)[number] => o != null);
 
-  // Resolve per-company stock-growth multiplier from cached price history
-  // (now freshly written by the auto-refresh above).
+  // Resolve per-company stock-growth multiplier from the cached CAGR on
+  // Company (just refreshed above by getStockCagr). Replaces the older
+  // pattern of recomputing CAGR from a daily-price history table.
   const distinctCompanyIds = distinctCompanies.map((c) => c.id);
   const cagrByCompany = new Map<string, number>();
-  await Promise.all(
-    distinctCompanyIds.map(async (cid) => {
-      const prices = await prisma.stockPriceHistory.findMany({
-        where: { companyId: cid },
-        orderBy: { date: 'asc' },
-        select: { date: true, closeUsd: true },
-      });
-      if (prices.length < 2) return;
-      const cagr = computeHistoricalCagr(
-        prices.map((p) => ({ date: p.date, closeUsd: p.closeUsd })),
-        5,
-      );
-      if (cagr != null && Number.isFinite(cagr)) cagrByCompany.set(cid, cagr);
-    }),
-  );
+  const cachedCompanies = await prisma.company.findMany({
+    where: { id: { in: distinctCompanyIds } },
+    select: { id: true, stockCagr5yPct: true },
+  });
+  for (const c of cachedCompanies) {
+    if (c.stockCagr5yPct != null && Number.isFinite(c.stockCagr5yPct)) {
+      cagrByCompany.set(c.id, c.stockCagr5yPct);
+    }
+  }
 
   // Track which growth assumption was applied to each offer so the UI can show it.
   const growthByOfferId = new Map<string, { pct: number; source: 'override' | 'cagr' | 'none' }>();

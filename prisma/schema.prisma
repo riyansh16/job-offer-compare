@@ -125,11 +125,20 @@ model Company {
   // signals (e.g. `layoffsUpdatedAt`) also live on this model.
   ratingsLastFetchAttemptAt DateTime?
 
+  // Cached stock metrics from Yahoo Finance. Refreshed lazily by
+  // src/lib/providers/stockPrice.ts when stockUpdatedAt is older than 6h
+  // and the company is being scored. Replaces the old StockPriceHistory
+  // table which stored ~1300 daily close rows per company just to
+  // recompute these 3 numbers - the daily series was never read.
+  stockCagr5yPct       Float?
+  stockCagr1yPct       Float?
+  stockCurrentPriceUsd Float?
+  stockUpdatedAt       DateTime?
+
   createdAt         DateTime @default(now())
 
   offers            JobOffer[]
   sentiments        ReviewSentiment[]
-  prices            StockPriceHistory[]
 }
 
 model JobOffer {
@@ -229,20 +238,6 @@ model ReviewSentiment {
   // race window where two concurrent refreshes could both insert).
   @@unique([companyId, source])
   @@index([companyId, source])
-}
-
-model StockPriceHistory {
-  id        String   @id @default(cuid())
-  companyId String
-  date      DateTime
-  closeUsd  Float
-  source    String   @default("YahooFinance")
-  fetchedAt DateTime @default(now())
-
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  @@unique([companyId, date])
-  @@index([companyId])
 }
 
 model AiInsight {

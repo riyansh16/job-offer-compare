@@ -3,7 +3,6 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { CompanyRefreshPanel } from '@/components/CompanyRefreshPanel';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
-import { computeHistoricalCagr } from '@/lib/engine/equity';
 
 export default async function CompanyDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -11,16 +10,9 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
   if (!session?.user) redirect('/auth/signin');
   const company = await prisma.company.findUnique({
     where: { slug },
-    include: { sentiments: true, prices: { orderBy: { date: 'asc' } } },
+    include: { sentiments: true },
   });
   if (!company) notFound();
-
-  // Pre-compute price stats from cached history so the panel renders without
-  // requiring a Refresh click.
-  const pricePoints = company.prices.map((p) => ({ date: p.date, closeUsd: p.closeUsd }));
-  const initialCurrentPrice = pricePoints.length > 0 ? pricePoints[pricePoints.length - 1].closeUsd : null;
-  const initialCagr5y = pricePoints.length >= 2 ? computeHistoricalCagr(pricePoints, 5) : null;
-  const initialCagr1y = pricePoints.length >= 2 ? computeHistoricalCagr(pricePoints, 1) : null;
 
   return (
     <div className="space-y-6">
@@ -118,12 +110,10 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
           summary: s.summary,
           fetchedAt: s.fetchedAt.toISOString(),
         }))}
-        priceCount={company.prices.length}
-        firstPriceDate={company.prices[0]?.date.toISOString() ?? null}
-        lastPriceDate={company.prices[company.prices.length - 1]?.date.toISOString() ?? null}
-        initialCurrentPrice={initialCurrentPrice}
-        initialCagr5y={initialCagr5y}
-        initialCagr1y={initialCagr1y}
+        initialCurrentPrice={company.stockCurrentPriceUsd}
+        initialCagr5y={company.stockCagr5yPct}
+        initialCagr1y={company.stockCagr1yPct}
+        initialUpdatedAt={company.stockUpdatedAt?.toISOString() ?? null}
       />
     </div>
   );
