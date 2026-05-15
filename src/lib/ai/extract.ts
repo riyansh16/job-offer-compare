@@ -105,6 +105,23 @@ const ALLOWED_MIME = new Set([
   'image/webp',
 ]);
 
+/**
+ * Collect every configured Gemini API key in priority order.
+ * Supports `GEMINI_API_KEY` (primary) plus numbered fallbacks
+ * `GEMINI_API_KEY_2`..`GEMINI_API_KEY_10`. Mirrors the rotation pattern in
+ * src/lib/providers/llmRatings.ts so a per-minute throttle or daily-quota hit
+ * on the primary key falls through cleanly to a backup key.
+ */
+function collectGeminiKeys(): string[] {
+  const raw: (string | undefined)[] = [process.env.GEMINI_API_KEY];
+  for (let i = 2; i <= 10; i++) raw.push(process.env[`GEMINI_API_KEY_${i}`]);
+  const keys = raw
+    .map((k) => k?.trim())
+    .filter((k): k is string => !!k && k.length > 0);
+  // Dedupe — someone might paste the same key in two slots.
+  return [...new Set(keys)];
+}
+
 export interface ExtractError {
   ok: false;
   status: number;
@@ -143,13 +160,15 @@ export async function extractOfferFromFile(
   }
 
   // Build the candidate provider chain. Gemini is the only provider that
-  // handles PDFs natively; Azure OpenAI and GitHub Models are images-only.
+  // handles PDFs natively; Azure OpenAI is images-only.
+  // For Gemini we accept multiple API keys (GEMINI_API_KEY + _2.._10) so a
+  // single user upload can survive per-minute rate limits or daily-quota
+  // exhaustion on the primary key. Same pattern as src/lib/providers/llmRatings.ts.
   const isPdf = mimeType === 'application/pdf';
   const candidates: Array<() => Promise<ExtractResult> | null> = [];
 
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (geminiKey) {
-    candidates.push(() => extractWithGemini(buffer, mimeType, geminiKey));
+  for (const key of collectGeminiKeys()) {
+    candidates.push(() => extractWithGemini(buffer, mimeType, key));
   }
 
   if (!isPdf) {
@@ -157,10 +176,6 @@ export async function extractOfferFromFile(
     const azureKey = process.env.AZURE_OPENAI_API_KEY;
     if (azureEndpoint && azureKey) {
       candidates.push(() => extractWithAzureOpenAI(buffer, mimeType, azureEndpoint, azureKey));
-    }
-    const ghToken = process.env.GITHUB_TOKEN;
-    if (ghToken) {
-      candidates.push(() => extractWithGitHubModels(buffer, mimeType, ghToken));
     }
   }
 
@@ -170,27 +185,37 @@ export async function extractOfferFromFile(
       status: 503,
       message: isPdf
         ? 'PDF parsing requires GEMINI_API_KEY. Set it in your environment, or upload a screenshot/photo of the offer instead.'
-        : 'No AI provider configured. Set GEMINI_API_KEY (recommended) or AZURE_OPENAI_* / GITHUB_TOKEN for image uploads.',
+        : 'No AI provider configured. Set GEMINI_API_KEY (recommended) or AZURE_OPENAI_* for image uploads.',
     };
   }
 
   let lastError: unknown = null;
+  let allRateLimited = true;
   for (const tryProvider of candidates) {
     try {
       const result = await tryProvider();
       if (result) return result;
     } catch (err) {
       lastError = err;
-      console.warn('[extract] provider failed, trying next:', err);
+      const status = (err as { status?: number })?.status;
+      if (status !== 429) {
+        allRateLimited = false;
+        console.warn('[extract] provider failed, trying next:', err);
+      } else {
+        // 429 is expected on free-tier rate limits / daily quotas — don't
+        // log as a scary warning, just rotate to the next key/provider.
+        console.info('[extract] provider rate-limited, rotating');
+      }
     }
   }
 
   return {
     ok: false,
-    status: 502,
-    message:
-      'All configured AI providers failed. ' +
-      (lastError instanceof Error ? lastError.message : 'Try again or use a different file.'),
+    status: allRateLimited ? 429 : 502,
+    message: allRateLimited
+      ? 'AI rate limit hit on every configured key. Try again in a minute, or add another GEMINI_API_KEY_2..10 to your environment.'
+      : 'All configured AI providers failed. ' +
+        (lastError instanceof Error ? lastError.message : 'Try again or use a different file.'),
   };
 }
 
@@ -247,22 +272,6 @@ async function extractWithAzureOpenAI(
     defaultHeaders: { 'api-key': apiKey },
   });
   return openAiVisionExtract(client, deployment, buffer, mimeType);
-}
-
-async function extractWithGitHubModels(
-  buffer: Buffer,
-  mimeType: string,
-  token: string,
-): Promise<ExtractResult> {
-  const model =
-    process.env.AI_MODEL && !process.env.AI_MODEL.toLowerCase().startsWith('gemini')
-      ? process.env.AI_MODEL
-      : 'gpt-4o-mini';
-  const client = new OpenAI({
-    apiKey: token,
-    baseURL: 'https://models.inference.ai.azure.com',
-  });
-  return openAiVisionExtract(client, model, buffer, mimeType);
 }
 
 async function openAiVisionExtract(
