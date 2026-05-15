@@ -19,9 +19,17 @@ export interface ExtractedOffer {
   workMode?: 'Remote' | 'Hybrid' | 'Onsite';
   baseSalary?: number;
   targetBonusPct?: number;
+  /** One-time joining/relocation/sign-on amount, in `currency`. */
   signOnBonus?: number;
-  /** Annualized vesting value (one year), not the total grant. */
+  /** Annualized vesting value (one year), in `equityCurrency` if set, else `currency`. */
   equityTotal?: number;
+  /** Vesting horizon in years (typically 4). Used for the per-year math. */
+  equityVestingYears?: number;
+  /**
+   * Currency for `equityTotal` when it differs from base salary currency
+   * (very common: India base in INR + RSUs in USD). ISO 4217.
+   */
+  equityCurrency?: string;
   benefitsValueAnnual?: number;
   ptoDays?: number;
   /** ISO 4217 currency code as detected in the document, e.g. 'INR', 'USD'. */
@@ -38,24 +46,53 @@ Schema (every field optional, omit what you cannot find with high confidence):
 {
   "companyName":        string,                 // employer name as written
   "title":              string,                 // job title
-  "level":              string,                 // e.g. "L5", "Senior", "SDE II"
+  "level":              string,                 // e.g. "L5", "Senior", "SDE II", "61"
   "location":           string,                 // "City, State/Country" or "Remote"
   "workMode":           "Remote"|"Hybrid"|"Onsite",
-  "baseSalary":         number,                 // ANNUAL base, in detected currency
+  "baseSalary":         number,                 // ANNUAL base, in "currency"
   "targetBonusPct":     number,                 // % of base, e.g. 15 means 15%
-  "signOnBonus":        number,                 // one-time, in detected currency
-  "equityTotal":        number,                 // annualized vesting (total grant ÷ vesting years)
+  "signOnBonus":        number,                 // one-time joining/sign-on/RELOCATION bonus, in "currency". Sum joining + relocation if both exist.
+  "equityTotal":        number,                 // ANNUALIZED vesting value (total grant ÷ vesting years), in "equityCurrency" if set, else "currency"
+  "equityVestingYears": number,                 // vesting horizon in years; default 4 if document says "vesting per company policy" without a number
+  "equityCurrency":     string,                 // ISO 4217 — set ONLY when equity is in a different currency than base (e.g. India offer with USD RSUs)
   "benefitsValueAnnual": number,                // optional, only if document states a $/₹ value
   "ptoDays":            number,                 // total annual PTO/leave days
-  "currency":           string,                 // ISO 4217 code: "INR", "USD", "EUR", ...
-  "note":               string                  // 1-line caveat (cliff, refresh, RSU vs option, etc.)
+  "currency":           string,                 // ISO 4217 of base salary
+  "note":               string                  // 1-line caveat (cliff, refresh, RSU vs option, components rolled together, etc.)
 }
 
 Rules:
 - Output ONE JSON object and nothing else. No markdown.
 - Only include a field if the document clearly states it. Never guess.
-- For equity, if the letter shows a total grant over N years, return total/N
-  in equityTotal and explain in "note" (e.g. "₹60L total over 4yr").
+
+EQUITY / STOCK — look carefully, this is commonly missed:
+- Sections titled "On-Hire Stock Award", "Stock Award", "RSU Grant", "Equity",
+  "Restricted Stock Units", "Long Term Incentive", "LTI", "ESPP grant",
+  "shares of [Company] common stock" all describe equity.
+- If the letter says "X (USD/INR) divided by closing stock price" or "shares
+  worth X", that X IS the total grant value. Use it.
+- If vesting years aren't stated, assume 4 (industry standard for FAANG/MSFT)
+  and put "assumed 4yr vesting" in "note".
+- equityTotal = total_grant / equityVestingYears. ALWAYS annualize.
+- If grant currency differs from base, set "equityCurrency" (don't convert).
+- If letter mentions stock but value is missing, still set equityVestingYears
+  if known, and put the description in "note".
+
+ONE-TIME BONUSES — combine into signOnBonus:
+- "Joining bonus", "Sign-on bonus", "Relocation bonus", "Relocation allowance",
+  "Welcome bonus" are all one-time payments. SUM them into signOnBonus and
+  list the components in "note" (e.g. "₹2L joining + ₹1L relocation").
+
+NOTE STYLE — write notes for a non-expert audience:
+- Plain English, no legal jargon. Say "stock grant" not "common stock".
+  Say "RSUs" only if you also explain ("RSUs/restricted shares").
+- When components are merged into Sign-on, prefix with "Sign-on →" so the
+  user knows where it ended up. Example:
+    "Sign-on → ₹1.18L relocation cash + ₹3L grossed-up payout (combined).
+     Stock grant: assumed 4yr vesting."
+- Keep the whole note under 200 chars; one or two clauses.
+
+OTHER:
 - Convert monthly figures to annual (× 12). Do not convert across currencies.
 - If currency is ambiguous, omit "currency" and money fields.
 - If the document is not an offer letter, return {}.`;
@@ -84,7 +121,7 @@ export type ExtractResult = ExtractSuccess | ExtractError;
 /**
  * Extract structured offer fields from an uploaded file.
  * Prefers Gemini (handles PDF + images natively); falls back to Azure OpenAI
- * vision for images only.
+ * / GitHub Models vision for images only.
  */
 export async function extractOfferFromFile(
   buffer: Buffer,
@@ -121,6 +158,10 @@ export async function extractOfferFromFile(
     if (azureEndpoint && azureKey) {
       candidates.push(() => extractWithAzureOpenAI(buffer, mimeType, azureEndpoint, azureKey));
     }
+    const ghToken = process.env.GITHUB_TOKEN;
+    if (ghToken) {
+      candidates.push(() => extractWithGitHubModels(buffer, mimeType, ghToken));
+    }
   }
 
   if (candidates.length === 0) {
@@ -129,7 +170,7 @@ export async function extractOfferFromFile(
       status: 503,
       message: isPdf
         ? 'PDF parsing requires GEMINI_API_KEY. Set it in your environment, or upload a screenshot/photo of the offer instead.'
-        : 'No AI provider configured. Set GEMINI_API_KEY (recommended) or AZURE_OPENAI_* for image uploads.',
+        : 'No AI provider configured. Set GEMINI_API_KEY (recommended) or AZURE_OPENAI_* / GITHUB_TOKEN for image uploads.',
     };
   }
 
@@ -206,6 +247,22 @@ async function extractWithAzureOpenAI(
     defaultHeaders: { 'api-key': apiKey },
   });
   return openAiVisionExtract(client, deployment, buffer, mimeType);
+}
+
+async function extractWithGitHubModels(
+  buffer: Buffer,
+  mimeType: string,
+  token: string,
+): Promise<ExtractResult> {
+  const model =
+    process.env.AI_MODEL && !process.env.AI_MODEL.toLowerCase().startsWith('gemini')
+      ? process.env.AI_MODEL
+      : 'gpt-4o-mini';
+  const client = new OpenAI({
+    apiKey: token,
+    baseURL: 'https://models.inference.ai.azure.com',
+  });
+  return openAiVisionExtract(client, model, buffer, mimeType);
 }
 
 async function openAiVisionExtract(
@@ -299,6 +356,12 @@ function sanitize(raw: unknown): ExtractedOffer {
   if (signOnBonus !== undefined) out.signOnBonus = signOnBonus;
   const equityTotal = num(r.equityTotal);
   if (equityTotal !== undefined) out.equityTotal = equityTotal;
+  const equityVestingYears = num(r.equityVestingYears, 20);
+  if (equityVestingYears !== undefined && equityVestingYears > 0) {
+    out.equityVestingYears = equityVestingYears;
+  }
+  const equityCurrency = str(r.equityCurrency);
+  if (equityCurrency) out.equityCurrency = equityCurrency.toUpperCase().slice(0, 8);
   const benefitsValueAnnual = num(r.benefitsValueAnnual);
   if (benefitsValueAnnual !== undefined) out.benefitsValueAnnual = benefitsValueAnnual;
   const ptoDays = num(r.ptoDays, 365);

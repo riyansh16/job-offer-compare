@@ -13,7 +13,24 @@ const PARSE_MAX_BYTES = 10 * 1024 * 1024;
 type ParsedFields = Partial<Omit<OfferInitial, 'id' | 'isCurrent' | 'yearsExperience'>> & {
   companyName?: string;
   currency?: string;
+  equityCurrency?: string;
+  equityVestingYears?: number;
   note?: string;
+};
+
+interface ConversionRecord {
+  field: 'baseSalary' | 'signOnBonus' | 'equityTotal' | 'benefitsValueAnnual';
+  fromCurrency: string;
+  fromValue: number;
+  toValue: number;
+  rate: number;
+}
+
+const FIELD_LABELS: Record<ConversionRecord['field'], string> = {
+  baseSalary: 'Base salary',
+  signOnBonus: 'Sign-on',
+  equityTotal: 'Equity',
+  benefitsValueAnnual: 'Benefits',
 };
 
 export interface CompanyOption {
@@ -65,6 +82,7 @@ export function OfferForm({
   const [parsed, setParsed] = useState<ParsedFields>({});
   const [formKey, setFormKey] = useState(0);
   const [parseHint, setParseHint] = useState<string | null>(null);
+  const [conversions, setConversions] = useState<ConversionRecord[]>([]);
   const [isParsing, setIsParsing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -84,6 +102,7 @@ export function OfferForm({
     }
     setIsParsing(true);
     setParseHint(null);
+    setConversions([]);
     try {
       const fd = new FormData();
       fd.append('file', file);
@@ -92,6 +111,7 @@ export function OfferForm({
         ok?: boolean;
         data?: ParsedFields;
         matchedCompanyId?: string | null;
+        conversions?: ConversionRecord[];
         error?: string;
       };
       if (!res.ok || !json.ok || !json.data) {
@@ -99,24 +119,15 @@ export function OfferForm({
         return;
       }
       const data = json.data;
-
-      // Keep money fields only when currency is INR or unspecified — the form
-      // is INR-only, so foreign-currency amounts would mislead the user.
-      const currency = data.currency?.toUpperCase();
-      const moneyFieldsSafe = !currency || currency === 'INR';
       const next: ParsedFields = { ...data };
       const hints: string[] = [];
-      if (!moneyFieldsSafe) {
-        delete next.baseSalary;
-        delete next.signOnBonus;
-        delete next.equityTotal;
-        delete next.benefitsValueAnnual;
-        hints.push(
-          `Detected ${currency} amounts — please convert to INR manually before saving.`,
-        );
-      }
+
+      // The server has already converted any foreign-currency money fields to
+      // INR (when an FX rate was available) — see /api/offers/parse. Anything
+      // we still see here is either INR already, or was unconvertible and got
+      // dropped server-side. We just surface the AI's note + match info.
+      setConversions(json.conversions ?? []);
       if (data.note) hints.push(data.note);
-      setParseHint(hints.length ? hints.join(' ') : null);
       setParsed(next);
       setFormKey((k) => k + 1);
       if (json.matchedCompanyId) {
@@ -124,8 +135,8 @@ export function OfferForm({
         clearFieldError('companyId');
       } else if (data.companyName) {
         hints.push(`Company "${data.companyName}" not in catalog — pick the closest match.`);
-        setParseHint(hints.join(' '));
       }
+      setParseHint(hints.length ? hints.join(' ') : null);
       const filledCount = Object.values(next).filter(
         (x) => x !== undefined && x !== '' && x !== null,
       ).length;
@@ -204,6 +215,36 @@ export function OfferForm({
               <p className="mt-1 text-[11px] leading-tight text-[rgb(var(--warning,234_179_8))]">
                 {parseHint}
               </p>
+            )}
+            {conversions.length > 0 && (
+              <ul className="mt-2 space-y-0.5 text-[11px] leading-tight text-[rgb(var(--muted-foreground))]">
+                {conversions.map((c) => {
+                  // For equity, show the total-grant ÷ vesting-years derivation
+                  // so the user can see where the per-year number came from.
+                  const isEquity = c.field === 'equityTotal';
+                  const vestingYears = parsed.equityVestingYears;
+                  const totalGrant =
+                    isEquity && vestingYears && vestingYears > 1
+                      ? c.fromValue * vestingYears
+                      : null;
+                  return (
+                    <li key={c.field}>
+                      <span className="font-medium text-[rgb(var(--foreground))]">
+                        {FIELD_LABELS[c.field]}:
+                      </span>{' '}
+                      {totalGrant !== null && (
+                        <>
+                          {c.fromCurrency} {totalGrant.toLocaleString('en-US')} total ÷{' '}
+                          {vestingYears}yr ={' '}
+                        </>
+                      )}
+                      {c.fromCurrency} {c.fromValue.toLocaleString('en-US')}
+                      {isEquity ? '/yr' : ''} → ₹{c.toValue.toLocaleString('en-IN')}
+                      {isEquity ? '/yr' : ''} (rate {c.rate.toFixed(2)} {c.fromCurrency}/INR)
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </div>
           <div className="flex shrink-0 items-center gap-2">

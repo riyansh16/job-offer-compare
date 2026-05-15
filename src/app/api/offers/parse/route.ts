@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { extractOfferFromFile, type ExtractedOffer } from '@/lib/ai/extract';
+import { getFxRate } from '@/lib/providers/fxRate';
 
 // We need Node runtime for Buffer + the @google/genai SDK.
 export const runtime = 'nodejs';
@@ -65,47 +66,173 @@ export async function POST(req: Request): Promise<Response> {
     ? await matchCompanyId(result.data.companyName)
     : null;
 
+  // Convert any foreign-currency money fields to INR so the form can prefill
+  // them. We attach a `conversion` block explaining each conversion so the
+  // UI can show an audit trail (e.g. "Converted from $18,750 at ₹85.20/USD").
+  const { data, conversions } = await convertMoneyFieldsToInr(result.data);
+
   return NextResponse.json({
     ok: true,
-    data: result.data,
+    data,
     matchedCompanyId,
+    conversions,
   } satisfies ParseResponse);
+}
+
+export interface ConversionRecord {
+  field: 'baseSalary' | 'signOnBonus' | 'equityTotal' | 'benefitsValueAnnual';
+  fromCurrency: string;
+  fromValue: number;
+  toValue: number;
+  rate: number;
 }
 
 export interface ParseResponse {
   ok: true;
   data: ExtractedOffer;
   matchedCompanyId: string | null;
+  conversions: ConversionRecord[];
+}
+
+const MONEY_FIELDS = [
+  'baseSalary',
+  'signOnBonus',
+  'benefitsValueAnnual',
+] as const satisfies ReadonlyArray<ConversionRecord['field']>;
+
+/**
+ * Convert any money fields whose detected currency is not INR into INR using
+ * Yahoo Finance spot rates. Money fields that share `currency` (base salary,
+ * sign-on, benefits) are converted with the base FX rate; `equityTotal` uses
+ * `equityCurrency` when present (RSUs commonly USD on an INR base offer).
+ *
+ * If a conversion fails (unknown currency / network error), the field is
+ * dropped so the user has to enter it manually — better than silently writing
+ * a wrong number.
+ */
+async function convertMoneyFieldsToInr(
+  raw: ExtractedOffer,
+): Promise<{ data: ExtractedOffer; conversions: ConversionRecord[] }> {
+  const data: ExtractedOffer = { ...raw };
+  const conversions: ConversionRecord[] = [];
+
+  const baseCurrency = data.currency?.toUpperCase();
+  if (baseCurrency && baseCurrency !== 'INR') {
+    const quote = await getFxRate(baseCurrency, 'INR');
+    if (!quote) {
+      // Drop money fields we can't convert; let the user fill manually.
+      for (const k of MONEY_FIELDS) delete data[k];
+    } else {
+      for (const k of MONEY_FIELDS) {
+        const v = data[k];
+        if (typeof v === 'number') {
+          const converted = Math.round(v * quote.rate);
+          conversions.push({
+            field: k,
+            fromCurrency: baseCurrency,
+            fromValue: v,
+            toValue: converted,
+            rate: quote.rate,
+          });
+          data[k] = converted;
+        }
+      }
+      // Base salary etc. are now in INR; reflect that in `currency`.
+      data.currency = 'INR';
+    }
+  }
+
+  // Equity currency is independent (RSUs are often USD even when base is INR).
+  const equityCurrency =
+    data.equityCurrency?.toUpperCase() ??
+    // Fall back to base currency only if it was originally non-INR — once we've
+    // already converted base above, data.currency === 'INR' and equity is implicit-INR.
+    (raw.currency?.toUpperCase() && !raw.equityCurrency ? raw.currency.toUpperCase() : undefined);
+  if (
+    typeof data.equityTotal === 'number' &&
+    equityCurrency &&
+    equityCurrency !== 'INR'
+  ) {
+    const quote = await getFxRate(equityCurrency, 'INR');
+    if (!quote) {
+      delete data.equityTotal;
+    } else {
+      const converted = Math.round(data.equityTotal * quote.rate);
+      conversions.push({
+        field: 'equityTotal',
+        fromCurrency: equityCurrency,
+        fromValue: data.equityTotal,
+        toValue: converted,
+        rate: quote.rate,
+      });
+      data.equityTotal = converted;
+      delete data.equityCurrency;
+    }
+  }
+
+  return { data, conversions };
 }
 
 /**
  * Best-effort case-insensitive match against the Company catalog.
- * Tries exact match first, then a "starts with" match to catch variants like
- * "Google LLC" → "Google".
+ *
+ * Real-world offer letters use legal-entity names like
+ * "Microsoft India (R&D) Pvt. Ltd." or "Google India Private Limited"
+ * that won't match the short catalog name ("Microsoft", "Google").
+ *
+ * Strategy (try each in order, return the first hit):
+ *   1. Exact case-insensitive match on the raw name.
+ *   2. Strip parenthesized parts and corporate suffixes, retry exact.
+ *   3. Try the leading N tokens (longest first) — handles "Microsoft India" and
+ *      "Microsoft" both mapping to "Microsoft".
+ *   4. As a last resort, startsWith on the cleaned name.
  */
 async function matchCompanyId(name: string): Promise<string | null> {
   const trimmed = name.trim();
   if (!trimmed) return null;
 
-  const exact = await prisma.company.findFirst({
-    where: { name: { equals: trimmed, mode: 'insensitive' } },
-    select: { id: true },
-  });
-  if (exact) return exact.id;
-
-  // Try the head word(s) — e.g. extract "Google" from "Google LLC".
-  const head = trimmed.replace(/\s+(LLC|Inc\.?|Ltd\.?|Pvt\.?|Private|Limited|Corp\.?|Corporation|GmbH|AG|SA|BV)$/i, '').trim();
-  if (head && head !== trimmed) {
-    const headMatch = await prisma.company.findFirst({
-      where: { name: { equals: head, mode: 'insensitive' } },
+  const findExact = (q: string) =>
+    prisma.company.findFirst({
+      where: { name: { equals: q, mode: 'insensitive' } },
       select: { id: true },
     });
-    if (headMatch) return headMatch.id;
+
+  // 1. Exact match on the raw extracted name.
+  const exact = await findExact(trimmed);
+  if (exact) return exact.id;
+
+  // 2. Strip parens content + trailing legal-entity suffixes.
+  const SUFFIX_RE =
+    /\s+(LLC|Inc\.?|Ltd\.?|Pvt\.?|Private|Limited|Corp\.?|Corporation|Co\.?|Company|GmbH|AG|SA|BV|NV|PLC|LP|LLP|SARL|S\.?A\.?S\.?)$/i;
+  let cleaned = trimmed.replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
+  // Strip suffix repeatedly to handle "Pvt. Ltd." (two suffixes).
+  for (let i = 0; i < 3; i++) {
+    const stripped = cleaned.replace(SUFFIX_RE, '').trim();
+    if (stripped === cleaned) break;
+    cleaned = stripped;
   }
 
-  const starts = await prisma.company.findFirst({
-    where: { name: { startsWith: trimmed, mode: 'insensitive' } },
-    select: { id: true },
-  });
-  return starts?.id ?? null;
+  if (cleaned && cleaned !== trimmed) {
+    const cleanedMatch = await findExact(cleaned);
+    if (cleanedMatch) return cleanedMatch.id;
+  }
+
+  // 3. Try leading-token prefixes longest-first. "Microsoft India" → "Microsoft".
+  const tokens = cleaned.split(/\s+/).filter(Boolean);
+  for (let take = tokens.length - 1; take >= 1; take--) {
+    const prefix = tokens.slice(0, take).join(' ');
+    const m = await findExact(prefix);
+    if (m) return m.id;
+  }
+
+  // 4. StartsWith fallback against the cleaned name.
+  if (cleaned) {
+    const starts = await prisma.company.findFirst({
+      where: { name: { startsWith: cleaned, mode: 'insensitive' } },
+      select: { id: true },
+    });
+    if (starts) return starts.id;
+  }
+
+  return null;
 }
