@@ -160,16 +160,12 @@ model Compensation {
   baseSalary          Float
   targetBonusPct      Float    @default(0)
   signOnBonus         Float    @default(0)
-  equityTotal         Float    @default(0)   // total grant value (INR)
-  // Vesting schedule as JSON: { years: 4, cliffMonths: 12, cadence: "monthly"|"quarterly"|"annual",
-  //                              backloaded: false, customSchedule?: number[] (% per year) }
-  equityVestSchedule  String   @default("{\"years\":4,\"cliffMonths\":12,\"cadence\":\"quarterly\",\"backloaded\":false}")
+  equityTotal         Float    @default(0)   // ₹ value of equity that vests in year 1
   benefitsValueAnnual Float    @default(0)   // annualized INR value of health/PF/etc.
   ptoDays             Int      @default(0)
   workMode            String   @default("Onsite") // Remote | Hybrid | Onsite
   commuteCostMonthly  Float    @default(0)
   qualitativeScore    Int      @default(50)  // 0-100, user-supplied "growth/fit"
-  validUntil          DateTime?
 
   offer JobOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
 }

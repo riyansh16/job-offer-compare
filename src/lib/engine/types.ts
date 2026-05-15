@@ -9,24 +9,11 @@ export type WorkMode = 'Remote' | 'Hybrid' | 'Onsite';
 export type OfferStatus = 'Active' | 'Archived' | 'Accepted' | 'Rejected';
 export type AiInsightKind = 'Verdict' | 'Tradeoffs' | 'Negotiation' | 'Questions';
 
-export type VestingCadence = 'monthly' | 'quarterly' | 'annual';
-
-export interface VestSchedule {
-  years: number;
-  cliffMonths: number;
-  cadence: VestingCadence;
-  /** If true, uses 5/15/40/40 instead of equal per-year. */
-  backloaded?: boolean;
-  /** Optional explicit per-year percentages (must sum to 100). Overrides backloaded. */
-  customSchedule?: number[];
-}
-
 export interface CompensationInput {
   baseSalary: number;
   targetBonusPct: number;
   signOnBonus: number;
   equityTotal: number;
-  equityVestSchedule: VestSchedule;
   benefitsValueAnnual: number;
   ptoDays: number;
   workMode: WorkMode;

@@ -17,14 +17,6 @@ export interface RunComparisonOptions {
   growthOverridesByCompany?: Record<string, number>;
 }
 
-interface VestScheduleJson {
-  years: number;
-  cliffMonths: number;
-  cadence: 'monthly' | 'quarterly' | 'annual';
-  backloaded?: boolean;
-  customSchedule?: number[];
-}
-
 /**
  * Load the given offers from the DB, translate them into engine inputs
  * (including blended review scores), and produce a ranked comparison result.
@@ -113,12 +105,6 @@ export async function runComparisonForOffers(
       indeedReviewCount: o.company.indeedReviewCount,
       sentiments: o.company.sentiments,
     });
-    let vest: VestScheduleJson;
-    try {
-      vest = JSON.parse(c.equityVestSchedule) as VestScheduleJson;
-    } catch {
-      vest = { years: 4, cliffMonths: 12, cadence: 'quarterly' };
-    }
     // Apply this company's stock-growth assumption to next-year equity:
     // user override wins; otherwise falls back to cached trailing 5y CAGR.
     // Clamped to a sane range so a freak outlier (e.g. -90% or +200%) doesn't dominate.
@@ -158,7 +144,6 @@ export async function runComparisonForOffers(
         targetBonusPct: c.targetBonusPct,
         signOnBonus: c.signOnBonus,
         equityTotal: c.equityTotal * growthMultiplier,
-        equityVestSchedule: vest,
         benefitsValueAnnual: c.benefitsValueAnnual,
         ptoDays: c.ptoDays,
         workMode: c.workMode as OfferInput['compensation']['workMode'],

@@ -10,14 +10,11 @@ import {
 } from '../src/lib/engine';
 import type { CompensationInput, OfferInput, Weights } from '../src/lib/engine';
 
-const baseSchedule = { years: 4, cliffMonths: 12, cadence: 'quarterly' as const };
-
 const makeComp = (over: Partial<CompensationInput> = {}): CompensationInput => ({
   baseSalary: 150_000,
   targetBonusPct: 15,
   signOnBonus: 20_000,
   equityTotal: 200_000,
-  equityVestSchedule: baseSchedule,
   benefitsValueAnnual: 12_000,
   ptoDays: 20,
   workMode: 'Hybrid',

@@ -444,8 +444,6 @@ async function main() {
   if (!msft || !googl || !stripe || !razorpay)
     throw new Error('seed: failed to resolve demo companies');
 
-  const baseSchedule = JSON.stringify({ years: 4, cliffMonths: 12, cadence: 'quarterly' });
-
   await prisma.jobOffer.deleteMany({ where: { userId: user.id } });
 
   await prisma.jobOffer.create({
@@ -455,7 +453,7 @@ async function main() {
       compensation: { create: {
         // Current role, ~1 year into a $250K/4y grant. Vests roughly 62.5K/yr.
         baseSalary: 185000, targetBonusPct: 15, signOnBonus: 0, equityTotal: 62500,
-        equityVestSchedule: baseSchedule, benefitsValueAnnual: 18000, ptoDays: 22,
+        benefitsValueAnnual: 18000, ptoDays: 22,
         workMode: 'Hybrid', commuteCostMonthly: 200, qualitativeScore: 75,
       } },
     },
@@ -468,7 +466,7 @@ async function main() {
       compensation: { create: {
         // New offer: $320K total grant / 4 years = $80K/yr (assuming flat schedule).
         baseSalary: 220000, targetBonusPct: 18, signOnBonus: 50000, equityTotal: 80000,
-        equityVestSchedule: baseSchedule, benefitsValueAnnual: 22000, ptoDays: 20,
+        benefitsValueAnnual: 22000, ptoDays: 20,
         workMode: 'Hybrid', commuteCostMonthly: 350, qualitativeScore: 80,
       } },
     },
@@ -481,7 +479,7 @@ async function main() {
       compensation: { create: {
         // New offer: $400K total grant / 4 years = $100K/yr.
         baseSalary: 210000, targetBonusPct: 0, signOnBonus: 25000, equityTotal: 100000,
-        equityVestSchedule: baseSchedule, benefitsValueAnnual: 16000, ptoDays: 28,
+        benefitsValueAnnual: 16000, ptoDays: 28,
         workMode: 'Remote', commuteCostMonthly: 0, qualitativeScore: 70,
       } },
     },
@@ -496,7 +494,7 @@ async function main() {
         baseSalary: 4500000,
         // ₹6M total grant / 4 years = ₹1.5M/yr.
         targetBonusPct: 12, signOnBonus: 500000, equityTotal: 1500000,
-        equityVestSchedule: baseSchedule, benefitsValueAnnual: 200000, ptoDays: 25,
+        benefitsValueAnnual: 200000, ptoDays: 25,
         workMode: 'Hybrid', commuteCostMonthly: 5000, qualitativeScore: 72,
       } },
     },

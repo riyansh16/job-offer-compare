@@ -1,45 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
-  buildPerYearVestingPercentages,
   valueEquity,
   computeHistoricalCagr,
 } from '../src/lib/engine/equity';
-
-describe('buildPerYearVestingPercentages', () => {
-  it('4-year quarterly with 12-month cliff: equal slices', () => {
-    const r = buildPerYearVestingPercentages({ years: 4, cliffMonths: 12, cadence: 'quarterly' });
-    expect(r).toEqual([25, 25, 25, 25]);
-  });
-
-  it('Amazon-style backloaded 4-year: 5/15/40/40', () => {
-    const r = buildPerYearVestingPercentages({
-      years: 4,
-      cliffMonths: 12,
-      cadence: 'annual',
-      backloaded: true,
-    });
-    expect(r).toEqual([5, 15, 40, 40]);
-  });
-
-  it('honors customSchedule when provided', () => {
-    const r = buildPerYearVestingPercentages({
-      years: 4,
-      cliffMonths: 12,
-      cadence: 'annual',
-      customSchedule: [10, 20, 30, 40],
-    });
-    expect(r).toEqual([10, 20, 30, 40]);
-  });
-
-  it('cliff > 1 year delays vesting', () => {
-    const r = buildPerYearVestingPercentages({ years: 4, cliffMonths: 24, cadence: 'annual' });
-    expect(r[0]).toBe(0);
-    expect(r[1]).toBe(0);
-    // Remaining 100% spread over years 3 and 4 -> 50 each.
-    expect(r[2]).toBe(50);
-    expect(r[3]).toBe(50);
-  });
-});
 
 describe('valueEquity', () => {
   it('returns 0 for zero or negative input', () => {

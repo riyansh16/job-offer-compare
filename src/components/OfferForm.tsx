@@ -29,10 +29,6 @@ export interface OfferInitial {
   workMode?: string;
   commuteCostMonthly?: number;
   qualitativeScore?: number;
-  vestYears?: number;
-  vestCliffMonths?: number;
-  vestCadence?: string;
-  vestBackloaded?: boolean;
   /** Total years of professional experience. Only collected on the current
    *  role form; persists to User.yearsExperience for use on comparison pages. */
   yearsExperience?: number;

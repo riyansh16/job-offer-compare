@@ -32,12 +32,6 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
 
   const companies = await prisma.company.findMany({ orderBy: { name: 'asc' } });
   const c = offer.compensation;
-  let vest;
-  try {
-    vest = JSON.parse(c.equityVestSchedule);
-  } catch {
-    vest = { years: 4, cliffMonths: 12, cadence: 'quarterly' };
-  }
 
   const summaryView = (
     <section className="card grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
@@ -72,10 +66,6 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
           workMode: c.workMode,
           commuteCostMonthly: c.commuteCostMonthly,
           qualitativeScore: c.qualitativeScore,
-          vestYears: vest.years,
-          vestCliffMonths: vest.cliffMonths,
-          vestCadence: vest.cadence,
-          vestBackloaded: vest.backloaded,
         }}
       />
     </section>

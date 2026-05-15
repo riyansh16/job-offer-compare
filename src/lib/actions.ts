@@ -15,13 +15,6 @@ async function requireUserId(): Promise<string> {
 
 // ---------- Offers ----------
 
-const vestSchema = z.object({
-  years: z.coerce.number().int().min(1).max(10),
-  cliffMonths: z.coerce.number().int().min(0).max(36),
-  cadence: z.enum(['monthly', 'quarterly', 'annual']),
-  backloaded: z.boolean().optional(),
-});
-
 const offerSchema = z.object({
   companyId: z.string().min(1),
   title: z.string().min(1),
@@ -37,10 +30,6 @@ const offerSchema = z.object({
   workMode: z.enum(['Remote', 'Hybrid', 'Onsite']).default('Onsite'),
   commuteCostMonthly: z.coerce.number().min(0).default(0),
   qualitativeScore: z.coerce.number().int().min(0).max(100).default(50),
-  vestYears: z.coerce.number().int().min(1).max(10).default(4),
-  vestCliffMonths: z.coerce.number().int().min(0).max(36).default(12),
-  vestCadence: z.enum(['monthly', 'quarterly', 'annual']).default('quarterly'),
-  vestBackloaded: z.boolean().optional(),
   // Only collected on the current-role form. Persists to User.yearsExperience
   // on save. Empty string is normalized to undefined so the schema treats it
   // as "not provided".
@@ -57,14 +46,6 @@ export async function upsertOffer(id: string | null, formData: FormData) {
   const data = offerSchema.parse({
     ...raw,
     isCurrent: raw.isCurrent === 'on' || raw.isCurrent === 'true',
-    vestBackloaded: raw.vestBackloaded === 'on' || raw.vestBackloaded === 'true',
-  });
-
-  const vest = vestSchema.parse({
-    years: data.vestYears,
-    cliffMonths: data.vestCliffMonths,
-    cadence: data.vestCadence,
-    backloaded: data.vestBackloaded,
   });
 
   if (data.isCurrent) {
@@ -86,7 +67,6 @@ export async function upsertOffer(id: string | null, formData: FormData) {
             targetBonusPct: data.targetBonusPct,
             signOnBonus: data.signOnBonus,
             equityTotal: data.equityTotal,
-            equityVestSchedule: JSON.stringify(vest),
             benefitsValueAnnual: data.benefitsValueAnnual,
             ptoDays: data.ptoDays,
             workMode: data.workMode,
@@ -116,7 +96,6 @@ export async function upsertOffer(id: string | null, formData: FormData) {
           targetBonusPct: data.targetBonusPct,
           signOnBonus: data.signOnBonus,
           equityTotal: data.equityTotal,
-          equityVestSchedule: JSON.stringify(vest),
           benefitsValueAnnual: data.benefitsValueAnnual,
           ptoDays: data.ptoDays,
           workMode: data.workMode,
