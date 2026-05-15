@@ -84,7 +84,7 @@ export type ExtractResult = ExtractSuccess | ExtractError;
 /**
  * Extract structured offer fields from an uploaded file.
  * Prefers Gemini (handles PDF + images natively); falls back to Azure OpenAI
- * / GitHub Models vision for images only.
+ * vision for images only.
  */
 export async function extractOfferFromFile(
   buffer: Buffer,
@@ -121,10 +121,6 @@ export async function extractOfferFromFile(
     if (azureEndpoint && azureKey) {
       candidates.push(() => extractWithAzureOpenAI(buffer, mimeType, azureEndpoint, azureKey));
     }
-    const ghToken = process.env.GITHUB_TOKEN;
-    if (ghToken) {
-      candidates.push(() => extractWithGitHubModels(buffer, mimeType, ghToken));
-    }
   }
 
   if (candidates.length === 0) {
@@ -133,7 +129,7 @@ export async function extractOfferFromFile(
       status: 503,
       message: isPdf
         ? 'PDF parsing requires GEMINI_API_KEY. Set it in your environment, or upload a screenshot/photo of the offer instead.'
-        : 'No AI provider configured. Set GEMINI_API_KEY (recommended) or AZURE_OPENAI_* / GITHUB_TOKEN for image uploads.',
+        : 'No AI provider configured. Set GEMINI_API_KEY (recommended) or AZURE_OPENAI_* for image uploads.',
     };
   }
 
@@ -210,22 +206,6 @@ async function extractWithAzureOpenAI(
     defaultHeaders: { 'api-key': apiKey },
   });
   return openAiVisionExtract(client, deployment, buffer, mimeType);
-}
-
-async function extractWithGitHubModels(
-  buffer: Buffer,
-  mimeType: string,
-  token: string,
-): Promise<ExtractResult> {
-  const model =
-    process.env.AI_MODEL && !process.env.AI_MODEL.toLowerCase().startsWith('gemini')
-      ? process.env.AI_MODEL
-      : 'gpt-4o-mini';
-  const client = new OpenAI({
-    apiKey: token,
-    baseURL: 'https://models.inference.ai.azure.com',
-  });
-  return openAiVisionExtract(client, model, buffer, mimeType);
 }
 
 async function openAiVisionExtract(
