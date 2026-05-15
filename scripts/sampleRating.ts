@@ -26,7 +26,7 @@ async function main() {
   console.log(`\n=== ${company.name} (${company.slug}) ===`);
   console.log(`HQ: ${company.hqLocation ?? '—'}   Industry: ${company.industry ?? '—'}`);
   console.log(`Updated: ${company.ratingsUpdatedAt?.toISOString() ?? 'never'}`);
-  console.log(`Last attempt: ${company.lastFetchAttemptAt?.toISOString() ?? 'never'}`);
+  console.log(`Last attempt: ${company.ratingsLastFetchAttemptAt?.toISOString() ?? 'never'}`);
   console.log('\nIndeed:');
   console.log(`  Overall:        ${company.indeedRating ?? '—'}`);
   console.log(`  Review count:   ${company.indeedReviewCount ?? '—'}`);

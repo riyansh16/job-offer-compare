@@ -24,7 +24,7 @@ model User {
   email          String    @unique
   emailVerified  DateTime?
   image          String?
-  hashedPassword String?   // null for OAuth-only users
+  hashedPassword String?   @db.VarChar(128)  // null for OAuth-only users; bcrypt hashes are 60 chars—cap guards against accidental plaintext writes
   // Total years of professional experience. User sets it once (e.g. on
   // signup or via Profile settings); used to filter external compensation
   // signals (e.g. LeetCode posts) to peers in the same YoE band.
@@ -118,10 +118,12 @@ model Company {
   layoffsUpdatedAt       DateTime?
 
   ratingsUpdatedAt  DateTime?
-  // Tracks every refresh attempt (success or fail). Used by the batch refresher
-  // to pick the stalest companies in oldest-first order without endlessly
-  // retrying companies whose fetch keeps failing.
-  lastFetchAttemptAt DateTime?
+  // Tracks every ratings refresh attempt (success or fail). Used by the batch
+  // refresher to pick the stalest companies in oldest-first order without
+  // endlessly retrying companies whose fetch keeps failing. Renamed from
+  // `lastFetchAttemptAt` (May 15, 2026) for clarity now that other fetched
+  // signals (e.g. `layoffsUpdatedAt`) also live on this model.
+  ratingsLastFetchAttemptAt DateTime?
 
   createdAt         DateTime @default(now())
 
@@ -138,12 +140,13 @@ model JobOffer {
   level        String?
   location     String   // city, used for COL adjustment
   isCurrent    Boolean  @default(false)
-  status       String   @default("Active") // Active | Archived | Accepted | Rejected
-  notes        String?
   createdAt    DateTime @default(now())
 
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company      Company      @relation(fields: [companyId], references: [id])
+  // Restrict (the default) prevents deleting a catalog company while any user
+  // still has an offer pointing at it. Made explicit so a future reader
+  // doesn't have to remember the Prisma default.
+  company      Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
   compensation Compensation?
 
   @@index([userId])
@@ -171,7 +174,11 @@ model Compensation {
   offer JobOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
 }
 
-// Weight profile -> 100-point distribution across the 12 metrics.
+// Weight profile -> 100-point distribution across the 12 metrics:
+//   salary, bonus, equity, signOn, benefits, workMode, growth,
+//   reviewCompBenefits, reviewWLB, reviewCulture, reviewMgmt,
+//   reviewJobSecurityAndAdvancement.
+// (Older names like `pto`, `colAdjusted`, `reviews` were removed pre-launch.)
 // userId null => system preset (visible to all).
 model WeightProfile {
   id        String   @id @default(cuid())
@@ -221,6 +228,10 @@ model ReviewSentiment {
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
+  // One row per (company, source) so the upsert in refreshCompanySentiment
+  // can target it directly instead of doing find-then-update (which had a
+  // race window where two concurrent refreshes could both insert).
+  @@unique([companyId, source])
   @@index([companyId, source])
 }
 
@@ -248,5 +259,9 @@ model AiInsight {
 
   comparison Comparison @relation(fields: [comparisonId], references: [id], onDelete: Cascade)
 
+  // Regenerating an insight replaces the previous one instead of appending,
+  // so we can upsert by (comparisonId, kind). Without this, multiple
+  // 'Verdict' rows could accumulate per comparison.
+  @@unique([comparisonId, kind])
   @@index([comparisonId, kind])
 }

@@ -198,14 +198,6 @@ export function OfferForm({
             )}
           </div>
         )}
-        {!isCurrentMode && (
-          <div className="flex items-end">
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="isCurrent" defaultChecked={initial?.isCurrent} />
-              Also mark as my current job (baseline)
-            </label>
-          </div>
-        )}
       </fieldset>
 
       <fieldset className="grid gap-4 card sm:grid-cols-2 lg:grid-cols-3">

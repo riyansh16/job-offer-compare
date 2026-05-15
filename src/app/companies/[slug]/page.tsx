@@ -53,10 +53,6 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
         <Stat label="Size" value={company.size ?? '—'} />
         <Stat label="Status" value={company.isPublic ? `Public · ${company.tickerSymbol ?? ''}` : 'Private'} />
         <Stat label="Indeed" value={company.indeedRating ? `${company.indeedRating.toFixed(1)} ★` : '—'} />
-        <Stat
-          label="Ratings updated"
-          value={company.ratingsUpdatedAt ? new Date(company.ratingsUpdatedAt).toLocaleDateString() : '—'}
-        />
       </section>
 
       {hasIndeedBreakdown(company) && (

@@ -16,7 +16,7 @@ async function main() {
     where: { ratingsUpdatedAt: { not: null } },
   });
   const everAttempted = await prisma.company.count({
-    where: { lastFetchAttemptAt: { not: null } },
+    where: { ratingsLastFetchAttemptAt: { not: null } },
   });
   const fresh24h = await prisma.company.count({
     where: { ratingsUpdatedAt: { gt: new Date(Date.now() - 24 * 3600 * 1000) } },

@@ -7,7 +7,7 @@
  * (~50 RPD per key vs ~20 for lite), so it's wasteful on the bulk pass.
  *
  * This script targets ONLY the rows that are stuck:
- *   indeedRating IS NULL AND lastFetchAttemptAt IS NOT NULL
+ *   indeedRating IS NULL AND ratingsLastFetchAttemptAt IS NOT NULL
  *
  * It forces `GEMINI_RATINGS_MODEL=gemini-2.5-pro` before importing the
  * provider (the model id is captured at module load time), then runs the
@@ -54,9 +54,9 @@ async function main() {
   const candidates = await prisma.company.findMany({
     where: {
       indeedRating: null,
-      lastFetchAttemptAt: { not: null },
+      ratingsLastFetchAttemptAt: { not: null },
     },
-    orderBy: [{ lastFetchAttemptAt: 'asc' }, { name: 'asc' }],
+    orderBy: [{ ratingsLastFetchAttemptAt: 'asc' }, { name: 'asc' }],
     select: { id: true, name: true },
   });
 

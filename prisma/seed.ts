@@ -451,7 +451,7 @@ async function main() {
   await prisma.jobOffer.create({
     data: {
       userId: user.id, companyId: msft.id, title: 'Senior SWE', level: '63',
-      location: 'Redmond, WA', isCurrent: true, status: 'Active',
+      location: 'Redmond, WA', isCurrent: true,
       compensation: { create: {
         // Current role, ~1 year into a $250K/4y grant. Vests roughly 62.5K/yr.
         baseSalary: 185000, targetBonusPct: 15, signOnBonus: 0, equityTotal: 62500,
@@ -464,7 +464,7 @@ async function main() {
   await prisma.jobOffer.create({
     data: {
       userId: user.id, companyId: googl.id, title: 'L5 SWE', level: 'L5',
-      location: 'Mountain View, CA', status: 'Active',
+      location: 'Mountain View, CA',
       compensation: { create: {
         // New offer: $320K total grant / 4 years = $80K/yr (assuming flat schedule).
         baseSalary: 220000, targetBonusPct: 18, signOnBonus: 50000, equityTotal: 80000,
@@ -477,7 +477,7 @@ async function main() {
   await prisma.jobOffer.create({
     data: {
       userId: user.id, companyId: stripe.id, title: 'Senior Engineer',
-      location: 'Remote', status: 'Active',
+      location: 'Remote',
       compensation: { create: {
         // New offer: $400K total grant / 4 years = $100K/yr.
         baseSalary: 210000, targetBonusPct: 0, signOnBonus: 25000, equityTotal: 100000,
@@ -491,7 +491,7 @@ async function main() {
   await prisma.jobOffer.create({
     data: {
       userId: user.id, companyId: razorpay.id, title: 'Senior Engineer',
-      location: 'Bangalore, IN', status: 'Active',
+      location: 'Bangalore, IN',
       compensation: { create: {
         baseSalary: 4500000,
         // ₹6M total grant / 4 years = ₹1.5M/yr.

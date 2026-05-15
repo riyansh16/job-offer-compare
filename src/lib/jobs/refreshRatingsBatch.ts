@@ -1,7 +1,7 @@
 /**
  * Batched rating-refresh job.
  *
- * Picks the N "stalest" companies (oldest lastFetchAttemptAt, nulls first),
+ * Picks the N "stalest" companies (oldest ratingsLastFetchAttemptAt, nulls first),
  * fetches Indeed ratings via Gemini, persists results.
  *
  * Designed for two callers:
@@ -14,7 +14,7 @@ import { fetchLlmRatings, GeminiQuotaExhaustedError } from '../providers/llmRati
 export interface BatchOptions {
   /** Max companies to refresh in this run. */
   batchSize: number;
-  /** If true, ignores lastFetchAttemptAt — refreshes EVERY company. */
+  /** If true, ignores ratingsLastFetchAttemptAt — refreshes EVERY company. */
   refreshAll?: boolean;
   /** If true, only target companies missing an Indeed rating. Skips companies
    *  that already have data, so we don't waste quota re-fetching successes. */
@@ -43,14 +43,14 @@ export async function refreshRatingsBatch(opts: BatchOptions): Promise<BatchResu
   const concurrency = Math.max(1, opts.concurrency ?? 1);
 
   // Pick stalest companies first. Companies that have never been attempted
-  // (lastFetchAttemptAt = null) come first because nulls sort low in SQLite ASC.
+  // (ratingsLastFetchAttemptAt = null) come first because nulls sort low in SQLite ASC.
   // onlyMissing filter: skip companies that already have an Indeed rating, so
   // a partial bootstrap (e.g. quota cut us off at 50/164) can resume cheaply
   // without re-fetching successes.
   const where = opts.onlyMissing ? { indeedRating: null } : undefined;
   const targets = await prisma.company.findMany({
     where,
-    orderBy: [{ lastFetchAttemptAt: 'asc' }, { name: 'asc' }],
+    orderBy: [{ ratingsLastFetchAttemptAt: 'asc' }, { name: 'asc' }],
     take: opts.batchSize,
     select: {
       id: true,
@@ -88,14 +88,14 @@ export async function refreshRatingsBatch(opts: BatchOptions): Promise<BatchResu
         failed++;
         await prisma.company.update({
           where: { id: c.id },
-          data: { lastFetchAttemptAt: new Date() },
+          data: { ratingsLastFetchAttemptAt: new Date() },
         });
         return 'fail';
       }
 
       // Build partial-update payload — only overwrite non-null fields.
       const data: Record<string, unknown> = {
-        lastFetchAttemptAt: new Date(),
+        ratingsLastFetchAttemptAt: new Date(),
       };
       const setIfNotNull = (key: string, v: unknown) => {
         if (v != null) data[key] = v;
@@ -131,7 +131,7 @@ export async function refreshRatingsBatch(opts: BatchOptions): Promise<BatchResu
       await prisma.company
         .update({
           where: { id: c.id },
-          data: { lastFetchAttemptAt: new Date() },
+          data: { ratingsLastFetchAttemptAt: new Date() },
         })
         .catch(() => null);
       return 'fail';

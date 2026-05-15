@@ -68,9 +68,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
           full += chunk;
           controller.enqueue(encoder.encode(chunk));
         }
-        // Persist the completed result.
-        await prisma.aiInsight.create({
-          data: { comparisonId: id, kind, content: full, model: provider.model },
+        // Persist the completed result. Upsert by (comparisonId, kind) so
+        // regenerating an insight replaces the previous one instead of
+        // accumulating duplicates. The unique constraint backing this lives
+        // in `prisma/schema.prisma` on the AiInsight model.
+        await prisma.aiInsight.upsert({
+          where: { comparisonId_kind: { comparisonId: id, kind } },
+          create: { comparisonId: id, kind, content: full, model: provider.model },
+          update: { content: full, model: provider.model, generatedAt: new Date() },
         });
         controller.close();
       } catch (err) {

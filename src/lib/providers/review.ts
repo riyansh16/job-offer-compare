@@ -31,7 +31,7 @@ export async function refreshCompanySentiment(companyId: string, force = false) 
       fetchHackerNewsSentiment(query).then((r) => {
         if (!r) return null;
         return prisma.reviewSentiment.upsert({
-          where: { id: existing.find((e) => e.source === 'HackerNews')?.id ?? 'new-hn' },
+          where: { companyId_source: { companyId, source: r.source } },
           create: {
             companyId,
             source: r.source,
@@ -54,7 +54,7 @@ export async function refreshCompanySentiment(companyId: string, force = false) 
       fetchRedditSentiment(query).then((r) => {
         if (!r) return null;
         return prisma.reviewSentiment.upsert({
-          where: { id: existing.find((e) => e.source === 'Reddit')?.id ?? 'new-reddit' },
+          where: { companyId_source: { companyId, source: r.source } },
           create: {
             companyId,
             source: r.source,
