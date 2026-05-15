@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { createComparison } from '@/lib/actions';
 import { METRIC_KEYS, METRIC_LABELS, type Weights } from '@/lib/engine';
@@ -51,12 +51,20 @@ export function CompareWizard({
   const [isPending, startTransition] = useTransition();
   const [fetchingCagr, setFetchingCagr] = useState<string | 'all' | null>(null);
 
-  // Per-company stock-growth assumption (% per year). null = "use the cached CAGR
-  // automatically". A user-entered number overrides it.
+  // Per-company stock-growth assumption (% per year). null/missing = no growth
+  // applied (multiplier = 1, equity stays at the user-entered amount). Only an
+  // explicit number — typed or applied via "Apply suggestion" — affects scoring.
   const [growthByCompany, setGrowthByCompany] = useState<Record<string, number | null>>({});
 
-  // Whether "Use CAGR" / "Refresh all" should fetch trailing 5y or 1y growth.
+  // Whether the suggestion chip / "Apply" button should reflect trailing 5y or 1y growth.
   const [cagrWindow, setCagrWindow] = useState<'5y' | '1y'>('5y');
+
+  // Prefetched CAGR suggestions per company. Populated when the user reaches
+  // step 3 so we can show "Suggested: X.X%" chips without auto-applying them.
+  const [suggestionsByCompany, setSuggestionsByCompany] = useState<
+    Record<string, { cagr5y: number | null; cagr1y: number | null }>
+  >({});
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
   // Distinct selected offers (1 row per company in the growth panel).
   const selectedOffersList = useMemo(
@@ -80,45 +88,98 @@ export function CompareWizard({
   }
 
   async function refreshAllStocks() {
-    // Warm the stock-history cache for every selected public company so the
-    // engine has fresh CAGR data when it runs the comparison.
+    // Force-refresh the stock-history cache for every selected public company,
+    // then update the in-memory suggestion map so chips show the new numbers.
+    // Does not auto-apply — the user still has to click "Apply" per company.
     const targets = selectedOffersList.filter((o) => o.ticker && o.companyId);
     if (targets.length === 0) return;
     setFetchingCagr('all');
     try {
-      await Promise.all(
-        targets.map((o) =>
-          fetch(`/api/companies/${o.companyId}/refresh`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ kind: 'stock', force: false }),
-          }),
-        ),
+      const results = await Promise.all(
+        targets.map(async (o) => {
+          try {
+            const res = await fetch(`/api/companies/${o.companyId}/refresh`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ kind: 'stock', force: true }),
+            });
+            if (!res.ok) return null;
+            const data = (await res.json()) as {
+              result?: { cagrPct: number | null; cagr1yPct: number | null };
+            };
+            return [
+              o.companyId,
+              {
+                cagr5y: data.result?.cagrPct ?? null,
+                cagr1y: data.result?.cagr1yPct ?? null,
+              },
+            ] as const;
+          } catch {
+            return null;
+          }
+        }),
       );
+      setSuggestionsByCompany((prev) => {
+        const next = { ...prev };
+        for (const entry of results) {
+          if (entry) next[entry[0]] = entry[1];
+        }
+        return next;
+      });
     } finally {
       setFetchingCagr(null);
     }
   }
 
-  /** Fetch this one company's trailing CAGR (5y or 1y) and put it in the override map. */
-  async function autofillCompanyCagr(companyId: string, ticker: string | null) {
-    if (!ticker) return;
-    setFetchingCagr(companyId);
-    try {
-      const res = await fetch(`/api/companies/${companyId}/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind: 'stock', force: false }),
+  /**
+   * Prefetch CAGR suggestions for every selected public company without
+   * applying them. Runs when the user lands on step 3 so the suggestion
+   * chips render with real numbers instead of a generic "Apply" stub.
+   */
+  useEffect(() => {
+    if (step !== 3) return;
+    const targets = selectedOffersList.filter(
+      (o) => o.ticker && o.companyId && !suggestionsByCompany[o.companyId],
+    );
+    if (targets.length === 0) return;
+    let cancelled = false;
+    setLoadingSuggestions(true);
+    void Promise.all(
+      targets.map(async (o) => {
+        try {
+          const res = await fetch(`/api/companies/${o.companyId}/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ kind: 'stock', force: false }),
+          });
+          if (!res.ok) return [o.companyId, null] as const;
+          const data = (await res.json()) as {
+            result?: { cagrPct: number | null; cagr1yPct: number | null };
+          };
+          return [
+            o.companyId,
+            { cagr5y: data.result?.cagrPct ?? null, cagr1y: data.result?.cagr1yPct ?? null },
+          ] as const;
+        } catch {
+          return [o.companyId, null] as const;
+        }
+      }),
+    ).then((entries) => {
+      if (cancelled) return;
+      setSuggestionsByCompany((prev) => {
+        const next = { ...prev };
+        for (const [id, val] of entries) {
+          if (val) next[id] = val;
+        }
+        return next;
       });
-      const data = (await res.json()) as { result?: { cagrPct: number | null; cagr1yPct: number | null } };
-      const pick = cagrWindow === '1y' ? data.result?.cagr1yPct : data.result?.cagrPct;
-      if (pick != null) {
-        setGrowthByCompany((g) => ({ ...g, [companyId]: Number(pick.toFixed(2)) }));
-      }
-    } finally {
-      setFetchingCagr(null);
-    }
-  }
+      setLoadingSuggestions(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, selectedOffersList.length]);
 
   function onSubmit() {
     setError(null);
@@ -292,8 +353,14 @@ export function CompareWizard({
               <input value={name} onChange={(e) => setName(e.target.value)} className="input" />
             </div>
             <div className="md:col-span-2 space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="label !mb-0">Stock-growth assumption per company (% / yr)</label>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <label className="label !mb-0">Stock-growth assumption per company (% / yr)</label>
+                  <p className="mt-0.5 text-[11px] text-[rgb(var(--muted-foreground))]">
+                    Default is <strong>0%</strong> — the equity amount you entered is used as-is. Apply a
+                    suggested CAGR or type your own number to model growth.
+                  </p>
+                </div>
                 <div className="flex items-center gap-2">
                   <div className="inline-flex overflow-hidden rounded-md border text-xs" role="group" aria-label="CAGR window">
                     <button
@@ -327,20 +394,71 @@ export function CompareWizard({
               <ul className="divide-y rounded-lg border">
                 {selectedOffersList.map((o) => {
                   const v = growthByCompany[o.companyId];
-                  const isFetching = fetchingCagr === o.companyId;
+                  const sugg = suggestionsByCompany[o.companyId];
+                  const suggPick = sugg ? (cagrWindow === '1y' ? sugg.cagr1y : sugg.cagr5y) : null;
+                  const hasSuggestion = suggPick != null;
+                  // Treat the value as "already matching the suggestion" within 0.05pp
+                  // so the Apply button doesn't reappear right after a click.
+                  const alreadyApplied =
+                    hasSuggestion && v != null && Math.abs((v as number) - (suggPick as number)) < 0.05;
                   return (
-                    <li key={o.companyId} className="flex items-center gap-3 p-2 text-sm">
-                      <div className="flex-1">
+                    <li key={o.companyId} className="flex flex-wrap items-center gap-3 p-2 text-sm">
+                      <div className="flex-1 min-w-[140px]">
                         <div className="font-medium">{o.companyName}</div>
                         <div className="text-[11px] text-[rgb(var(--muted-foreground))]">
-                          {o.ticker ?? 'private — no ticker, defaults to 0%'}
+                          {o.ticker ?? 'private — no ticker, suggestion unavailable'}
                         </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {o.ticker && (
+                          <span className="text-[11px] text-[rgb(var(--muted-foreground))]">
+                            {hasSuggestion ? (
+                              <>
+                                Suggested:{' '}
+                                <strong className="text-[rgb(var(--foreground))]">
+                                  {(suggPick as number).toFixed(1)}%
+                                </strong>{' '}
+                                ({cagrWindow} CAGR)
+                              </>
+                            ) : loadingSuggestions ? (
+                              'Loading suggestion…'
+                            ) : (
+                              'No history available'
+                            )}
+                          </span>
+                        )}
+                        {hasSuggestion && !alreadyApplied && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setGrowthByCompany((g) => ({
+                                ...g,
+                                [o.companyId]: Number((suggPick as number).toFixed(2)),
+                              }))
+                            }
+                            className="btn-ghost text-xs whitespace-nowrap"
+                          >
+                            Apply
+                          </button>
+                        )}
+                        {alreadyApplied && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setGrowthByCompany((g) => ({ ...g, [o.companyId]: null }))
+                            }
+                            className="btn-ghost text-xs whitespace-nowrap text-[rgb(var(--muted-foreground))]"
+                            title="Clear applied growth (reset to 0%)"
+                          >
+                            Clear
+                          </button>
+                        )}
                       </div>
                       <input
                         type="number"
                         step={0.1}
                         value={v ?? ''}
-                        placeholder="auto"
+                        placeholder="0"
                         onChange={(e) => {
                           const txt = e.target.value;
                           setGrowthByCompany((g) => ({
@@ -349,16 +467,8 @@ export function CompareWizard({
                           }));
                         }}
                         className="input w-24 text-right"
+                        aria-label={`Stock-growth assumption for ${o.companyName} (percent per year)`}
                       />
-                      <button
-                        type="button"
-                        onClick={() => autofillCompanyCagr(o.companyId, o.ticker)}
-                        disabled={!o.ticker || isFetching}
-                        className="btn-outline text-xs whitespace-nowrap"
-                        title={o.ticker ? `Use trailing ${cagrWindow} CAGR` : 'No ticker available'}
-                      >
-                        {isFetching ? '…' : `Use ${cagrWindow}`}
-                      </button>
                     </li>
                   );
                 })}

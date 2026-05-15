@@ -13,6 +13,7 @@ export async function TopNav() {
     ? [
         { href: '/dashboard', label: 'Dashboard' },
         { href: '/current', label: 'Current role' },
+        { href: '/comparisons', label: 'Comparisons' },
         { href: '/companies', label: 'Companies' },
         ...(isAdmin ? [{ href: '/admin/stats', label: 'Admin' }] : []),
       ]

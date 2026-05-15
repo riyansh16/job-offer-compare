@@ -180,6 +180,29 @@ export async function deleteComparison(id: string) {
   const userId = await requireUserId();
   await prisma.comparison.deleteMany({ where: { id, userId } });
   revalidatePath('/dashboard');
+  revalidatePath('/comparisons');
+}
+
+/**
+ * Bulk-delete multiple comparisons in one round-trip. Caps the batch at 100
+ * to keep the WHERE…IN clause and Prisma payload sane; the dashboard list
+ * pagination is the natural ceiling on what a user can select at once anyway.
+ * Scoped to the calling user — `deleteMany` silently no-ops on rows that
+ * don't match `userId`, so cross-tenant IDs are safe to pass.
+ */
+export async function deleteComparisons(ids: string[]): Promise<{ deleted: number }> {
+  const userId = await requireUserId();
+  const cleaned = Array.from(new Set(ids.filter((s) => typeof s === 'string' && s.length > 0)));
+  if (cleaned.length === 0) return { deleted: 0 };
+  if (cleaned.length > 100) {
+    throw new Error('Too many comparisons selected (max 100 at a time).');
+  }
+  const res = await prisma.comparison.deleteMany({
+    where: { id: { in: cleaned }, userId },
+  });
+  revalidatePath('/dashboard');
+  revalidatePath('/comparisons');
+  return { deleted: res.count };
 }
 
 export async function ensurePresetWeightProfiles(userId: string) {

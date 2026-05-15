@@ -32,11 +32,11 @@ export default async function CompaniesIndexPage({
 
   // Build the Prisma where clause from query params.
   const where: {
-    name?: { contains: string };
+    name?: { contains: string; mode: 'insensitive' };
     industry?: string;
     size?: string;
   } = {};
-  if (q) where.name = { contains: q };
+  if (q) where.name = { contains: q, mode: 'insensitive' };
   if (industry) where.industry = industry;
   if (size) where.size = size;
 

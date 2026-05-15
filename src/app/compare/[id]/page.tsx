@@ -85,12 +85,31 @@ export default async function ComparisonPage({ params }: { params: Promise<{ id:
 
   const aiEnabled = isAiEnabled();
 
+  // Build a one-line summary of which equity-growth assumption was applied
+  // per company. With the new default (no auto-CAGR), this makes it explicit
+  // when the user left the assumption at 0% vs. when they applied a CAGR.
+  const growthSummary = snapshot.results
+    .map((r) => {
+      const pct = r.equityGrowthAppliedPct ?? 0;
+      const src = r.equityGrowthSource ?? 'none';
+      if (src === 'none' || pct === 0) {
+        return `${r.companyName}: 0% (default)`;
+      }
+      const sign = pct > 0 ? '+' : '';
+      const label = src === 'cagr' ? 'CAGR' : 'manual';
+      return `${r.companyName}: ${sign}${pct.toFixed(1)}% (${label})`;
+    })
+    .join(' · ');
+  const anyGrowthApplied = snapshot.results.some(
+    (r) => (r.equityGrowthAppliedPct ?? 0) !== 0 && r.equityGrowthSource !== 'none',
+  );
+
   return (
     <div className="space-y-6">
       <Breadcrumbs
         items={[
           { label: 'Dashboard', href: '/dashboard' },
-          { label: 'Comparisons', href: '/dashboard' },
+          { label: 'Comparisons', href: '/comparisons' },
           { label: c.name },
         ]}
       />
@@ -98,12 +117,28 @@ export default async function ComparisonPage({ params }: { params: Promise<{ id:
         <div>
           <h1 className="text-2xl font-semibold">{c.name}</h1>
           <p className="text-sm text-[rgb(var(--muted-foreground))]">
-            Created {new Date(c.createdAt).toLocaleString()} ·
-            Equity growth assumption {snapshot.equityGrowthPct.toFixed(1)}%
+            Created {new Date(c.createdAt).toLocaleString()}
           </p>
         </div>
         <DeleteComparisonButton id={c.id} />
       </header>
+
+      <div
+        className={`card text-sm ${
+          anyGrowthApplied
+            ? 'border-l-4 border-l-[rgb(var(--primary))] bg-[rgb(var(--primary))]/5'
+            : ''
+        }`}
+      >
+        <div className="font-medium">Equity-growth assumptions applied</div>
+        <div className="mt-1 text-[rgb(var(--muted-foreground))]">{growthSummary}</div>
+        {!anyGrowthApplied && (
+          <div className="mt-1 text-[11px] text-[rgb(var(--muted-foreground))]">
+            No growth applied — equity values were used as you entered them. Re-run a new
+            comparison to model stock-price growth.
+          </div>
+        )}
+      </div>
 
       <ComparisonResults snapshot={snapshot} />
 

@@ -100,21 +100,22 @@ export async function runComparisonForOffers(
       sentiments: o.company.sentiments,
     });
     // Apply this company's stock-growth assumption to next-year equity:
-    // user override wins; otherwise falls back to cached trailing 5y CAGR.
+    // ONLY use a value the user explicitly entered or applied via the
+    // "Apply suggestion" button. Cached trailing CAGR is no longer auto-applied
+    // — see docs/HOW-IT-WORKS.md for rationale. This keeps the equity number
+    // the user typed as the source of truth for comparison.
     // Clamped to a sane range so a freak outlier (e.g. -90% or +200%) doesn't dominate.
     const override = opts.growthOverridesByCompany?.[o.companyId];
     const cachedCagr = cagrByCompany.get(o.companyId);
-    const cagr = override ?? cachedCagr;
+    const cagr = override; // user-explicit only; no silent fallback to CAGR
     const growthMultiplier = cagr == null ? 1 : 1 + Math.max(-0.5, Math.min(1, cagr / 100));
     // Distinguish source: if the override matches cached CAGR within 0.05 percentage
-    // points, treat it as the autofilled CAGR (user clicked "Use CAGR" button).
+    // points, treat it as the autofilled CAGR (user clicked "Apply suggestion").
     let source: 'override' | 'cagr' | 'none' = 'none';
     if (override != null && cachedCagr != null && Math.abs(override - cachedCagr) < 0.05) {
       source = 'cagr';
     } else if (override != null) {
       source = 'override';
-    } else if (cachedCagr != null) {
-      source = 'cagr';
     }
     growthByOfferId.set(o.id, { pct: cagr ?? 0, source });
     return {
