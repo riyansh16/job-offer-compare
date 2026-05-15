@@ -98,7 +98,14 @@ export default async function DashboardPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Offers</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Recent offers</h2>
+          {otherOffers.length > 0 && (
+            <Link href="/offers" className="btn-ghost text-xs">
+              View all ({otherOffers.length}) →
+            </Link>
+          )}
+        </div>
         {otherOffers.length === 0 ? (
           <EmptyState
             icon={Briefcase}
@@ -112,7 +119,7 @@ export default async function DashboardPage() {
           />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            {otherOffers.map((o) => (
+            {otherOffers.slice(0, 4).map((o) => (
               <Link
                 key={o.id}
                 href={`/offers/${o.id}`}
