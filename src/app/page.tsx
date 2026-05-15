@@ -1,7 +1,11 @@
 import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
+import { auth } from '@/lib/auth';
 
-export default function Home() {
+export default async function Home() {
+  const session = await auth();
+  const isSignedIn = Boolean(session?.user);
+
   return (
     <div className="space-y-16 py-12">
       {/* Hero */}
@@ -15,8 +19,17 @@ export default function Home() {
           experience. AI verdicts cite the data instead of making it up.
         </p>
         <div className="flex justify-center gap-3 pt-4">
-          <Link href="/auth/signup" className="btn-primary">Get started</Link>
-          <Link href="/auth/signin" className="btn-outline">Sign in</Link>
+          {isSignedIn ? (
+            <>
+              <Link href="/dashboard" className="btn-primary">Go to dashboard</Link>
+              <Link href="/compare/new" className="btn-outline">New comparison</Link>
+            </>
+          ) : (
+            <>
+              <Link href="/auth/signup" className="btn-primary">Get started</Link>
+              <Link href="/auth/signin" className="btn-outline">Sign in</Link>
+            </>
+          )}
         </div>
       </section>
 
@@ -140,9 +153,15 @@ export default function Home() {
         <p className="mb-4 text-sm text-[rgb(var(--muted-foreground))]">
           Add your offers in 5 minutes. Walk into the negotiation already knowing the answer.
         </p>
-        <Link href="/auth/signup" className="btn-primary">
-          Create your account
-        </Link>
+        {isSignedIn ? (
+          <Link href="/offers/new" className="btn-primary">
+            Add an offer
+          </Link>
+        ) : (
+          <Link href="/auth/signup" className="btn-primary">
+            Create your account
+          </Link>
+        )}
       </section>
 
       {/* Data sources */}
