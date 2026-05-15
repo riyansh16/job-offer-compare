@@ -110,16 +110,26 @@ export function ComparisonResults({ snapshot }: { snapshot: ComparisonResult }) 
         <p className="mb-3 text-xs text-[rgb(var(--muted-foreground))]">
           Money values shown in each offer&apos;s native currency, as you entered them.
           Each metric is normalized 0–100 across offers, then weighted to produce the total score.
+          Swipe horizontally on small screens to compare more offers.
         </p>
-        <div className="relative -mx-6 overflow-x-auto px-6">
-          <table className="w-full min-w-[600px] text-sm">
+        {/*
+          Mobile-friendly horizontal scroller:
+          - `-mx-6 px-6` lets the scroll area bleed to card edges so swipes
+            from the screen edge work, while content stays visually inset.
+          - `scroll-smooth + snap-x snap-mandatory` makes swipes settle on
+            whole offer columns instead of stopping mid-cell.
+          - `before:` pseudo-element creates a subtle right-edge fade so
+            users see "there's more to scroll" without an explicit chevron.
+            (`pointer-events-none` so it doesn't eat taps.)
+        */}
+        <div className="relative -mx-6 overflow-x-auto px-6 scroll-smooth snap-x snap-mandatory before:pointer-events-none before:absolute before:inset-y-0 before:right-0 before:z-20 before:w-8 before:bg-gradient-to-l before:from-[rgb(var(--card))] before:to-transparent">
+          <table className="w-full min-w-[520px] text-sm">
           <thead>
             <tr className="border-b text-left">
-              <th className="sticky left-0 z-10 bg-[rgb(var(--card))] py-2 pr-3">Metric</th>
-              <th className="py-2 pr-3 text-right">Weight</th>
+              <th className="py-2 pr-3">Metric</th>
               {ranked.map((r) => (
-                <th key={r.offerId} className="py-2 px-3 text-right">
-                  <div>{r.companyName}</div>
+                <th key={r.offerId} className="snap-start py-2 px-3 text-right">
+                  <div className="whitespace-nowrap">{r.companyName}</div>
                   {r.nativeCurrency && r.nativeCurrency !== 'INR' && (
                     <div className="text-[10px] font-normal text-[rgb(var(--muted-foreground))]">
                       ({r.nativeCurrency})
@@ -132,8 +142,18 @@ export function ComparisonResults({ snapshot }: { snapshot: ComparisonResult }) 
           <tbody>
             {availableMetricKeys.map((k) => (
               <tr key={k} className="border-b last:border-0">
-                <td className="sticky left-0 z-10 bg-[rgb(var(--card))] py-2 pr-3">{METRIC_LABELS[k]}</td>
-                <td className="py-2 pr-3 text-right">{formatPct(snapshot.weights[k] ?? 0, 0)}</td>
+                <td className="py-2 pr-3 align-top">
+                  <div>{METRIC_LABELS[k]}</div>
+                  {/*
+                    Weight moves into the metric label as a small badge.
+                    It's the same value across offers (it weights the metric,
+                    not the offer), so showing it once per row instead of
+                    once per cell saves a column without losing information.
+                  */}
+                  <div className="text-[10px] text-[rgb(var(--muted-foreground))]">
+                    {formatPct(snapshot.weights[k] ?? 0, 0)} weight
+                  </div>
+                </td>
                 {ranked.map((r) => {
                   const m = r.metrics[k];
                   const isMoney = ['salary', 'bonus', 'equity', 'signOn', 'benefits'].includes(k);
@@ -160,12 +180,12 @@ export function ComparisonResults({ snapshot }: { snapshot: ComparisonResult }) 
                     display = m.raw.toFixed(0);
                   }
                   return (
-                    <td key={r.offerId} className="py-2 px-3 text-right">
-                      <div>{display}</div>
+                    <td key={r.offerId} className="snap-start py-2 px-3 text-right align-top">
+                      <div className="whitespace-nowrap">{display}</div>
                       {growthHint && (
                         <div className="text-[10px] text-[rgb(var(--primary))]">{growthHint}</div>
                       )}
-                      <div className="text-[10px] text-[rgb(var(--muted-foreground))]">
+                      <div className="whitespace-nowrap text-[10px] text-[rgb(var(--muted-foreground))]">
                         score {m.normalized.toFixed(0)} · contrib {m.weighted.toFixed(1)}
                       </div>
                     </td>
@@ -174,10 +194,9 @@ export function ComparisonResults({ snapshot }: { snapshot: ComparisonResult }) 
               </tr>
             ))}
             <tr className="font-semibold">
-              <td className="sticky left-0 z-10 bg-[rgb(var(--card))] py-2 pr-3">Total score</td>
-              <td className="py-2 pr-3 text-right">100</td>
+              <td className="py-2 pr-3">Total score</td>
               {ranked.map((r) => (
-                <td key={r.offerId} className="py-2 px-3 text-right">{r.totalScore.toFixed(1)}</td>
+                <td key={r.offerId} className="snap-start py-2 px-3 text-right">{r.totalScore.toFixed(1)}</td>
               ))}
             </tr>
           </tbody>
