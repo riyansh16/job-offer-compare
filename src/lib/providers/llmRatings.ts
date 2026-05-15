@@ -74,7 +74,7 @@ type CallOutcome =
  * Thrown when fetchLlmRatings could not make a single Gemini call because
  * either (a) no API keys are configured, or (b) every configured key has
  * exhausted its daily quota for this process. The caller (batch processor)
- * must NOT stamp lastFetchAttemptAt for the company — we never actually
+ * must NOT stamp ratingsLastFetchAttemptAt for the company — we never actually
  * tried, so the company should remain in the "never attempted" bucket and
  * be picked up by the next run after the daily quota resets.
  */
