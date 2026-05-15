@@ -1,6 +1,5 @@
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
-import Anthropic from '@anthropic-ai/sdk';
 
 /**
  * Fields we attempt to pull out of an uploaded offer letter.
@@ -84,8 +83,8 @@ export type ExtractResult = ExtractSuccess | ExtractError;
 
 /**
  * Extract structured offer fields from an uploaded file.
- * Prefers Gemini (handles PDF + images natively); falls back to OpenAI/Azure
- * vision for images only.
+ * Prefers Gemini (handles PDF + images natively); falls back to Azure OpenAI
+ * / GitHub Models vision for images only.
  */
 export async function extractOfferFromFile(
   buffer: Buffer,
@@ -106,25 +105,14 @@ export async function extractOfferFromFile(
     };
   }
 
-  // Build the candidate provider chain. Order is "tries that can handle this
-  // file" first — PDFs need Gemini / Anthropic / OpenAI direct (all support
-  // documents); Azure OpenAI and GitHub Models are images-only.
+  // Build the candidate provider chain. Gemini is the only provider that
+  // handles PDFs natively; Azure OpenAI and GitHub Models are images-only.
   const isPdf = mimeType === 'application/pdf';
   const candidates: Array<() => Promise<ExtractResult> | null> = [];
 
   const geminiKey = process.env.GEMINI_API_KEY;
   if (geminiKey) {
     candidates.push(() => extractWithGemini(buffer, mimeType, geminiKey));
-  }
-
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  if (anthropicKey) {
-    candidates.push(() => extractWithAnthropic(buffer, mimeType, anthropicKey));
-  }
-
-  const openaiKey = process.env.OPENAI_API_KEY;
-  if (openaiKey) {
-    candidates.push(() => extractWithOpenAI(buffer, mimeType, openaiKey));
   }
 
   if (!isPdf) {
@@ -144,8 +132,8 @@ export async function extractOfferFromFile(
       ok: false,
       status: 503,
       message: isPdf
-        ? 'No PDF-capable AI provider configured. Set one of: GEMINI_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY.'
-        : 'No AI provider configured. Set one of: GEMINI_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, AZURE_OPENAI_*, or GITHUB_TOKEN.',
+        ? 'PDF parsing requires GEMINI_API_KEY. Set it in your environment, or upload a screenshot/photo of the offer instead.'
+        : 'No AI provider configured. Set GEMINI_API_KEY (recommended) or AZURE_OPENAI_* / GITHUB_TOKEN for image uploads.',
     };
   }
 
@@ -203,109 +191,6 @@ async function extractWithGemini(
   });
 
   const text = response.text ?? '';
-  return parseJsonResult(text);
-}
-
-async function extractWithOpenAI(
-  buffer: Buffer,
-  mimeType: string,
-  apiKey: string,
-): Promise<ExtractResult> {
-  const model =
-    process.env.AI_MODEL && !process.env.AI_MODEL.toLowerCase().startsWith('gemini') &&
-    !process.env.AI_MODEL.toLowerCase().startsWith('claude')
-      ? process.env.AI_MODEL
-      : 'gpt-4o-mini';
-  const client = new OpenAI({ apiKey });
-
-  // PDFs use OpenAI's "input_file" content part on the Responses API. Chat
-  // completions only accept images, so we branch on mime type.
-  if (mimeType === 'application/pdf') {
-    const response = await client.responses.create({
-      model,
-      temperature: 0.05,
-      input: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'input_file',
-              filename: 'offer.pdf',
-              file_data: `data:application/pdf;base64,${buffer.toString('base64')}`,
-            },
-            {
-              type: 'input_text',
-              text: 'Extract the offer fields per the system schema. Return JSON only.',
-            },
-          ],
-        },
-      ],
-    });
-    return parseJsonResult(response.output_text ?? '');
-  }
-
-  return openAiVisionExtract(client, model, buffer, mimeType);
-}
-
-async function extractWithAnthropic(
-  buffer: Buffer,
-  mimeType: string,
-  apiKey: string,
-): Promise<ExtractResult> {
-  const model =
-    process.env.AI_MODEL?.toLowerCase().startsWith('claude')
-      ? process.env.AI_MODEL!
-      : 'claude-3-5-sonnet-latest';
-  const client = new Anthropic({ apiKey });
-
-  // Claude accepts images and PDFs as base64 source blocks. PDFs use
-  // type:'document'; images use type:'image'. Both share the same
-  // base64-source shape.
-  const fileBlock =
-    mimeType === 'application/pdf'
-      ? ({
-          type: 'document',
-          source: {
-            type: 'base64',
-            media_type: 'application/pdf',
-            data: buffer.toString('base64'),
-          },
-        } as const)
-      : ({
-          type: 'image',
-          source: {
-            type: 'base64',
-            media_type: mimeType as 'image/png' | 'image/jpeg' | 'image/webp',
-            data: buffer.toString('base64'),
-          },
-        } as const);
-
-  const response = await client.messages.create({
-    model,
-    max_tokens: 1024,
-    temperature: 0.05,
-    system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: 'user',
-        content: [
-          fileBlock,
-          {
-            type: 'text',
-            text: 'Extract the offer fields per the system schema. Return JSON only — no markdown, no prose.',
-          },
-        ],
-      },
-    ],
-  });
-
-  // Concatenate any text blocks in the response. Claude returns an array of
-  // content blocks; we only care about text ones.
-  const text = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('');
   return parseJsonResult(text);
 }
 
