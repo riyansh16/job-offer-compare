@@ -98,12 +98,23 @@ If you have a personal domain (e.g. `riyansh.dev`), just point a subdomain like 
 
 3. **Allow Azure services to connect** (in portal: Networking → Allow public access from any Azure service).
 
-4. **Run migrations against prod DB**:
+4. **Apply schema to prod DB**:
     ```pwsh
-    $env:DATABASE_URL = "postgresql://jocadmin:...@joc-db-prod.postgres.database.azure.com:5432/postgres?sslmode=require"
-    npx prisma db push
+    # Make sure DATABASE_URL in .env.local points at the prod Postgres URL,
+    # then push the schema. The npm script wraps `prisma db push` with
+    # `dotenv -e .env.local --` so the prod URL is loaded instead of the
+    # SQLite URL in .env.
+    npm run db:push
     npm run db:seed
     ```
+
+    > **This repo uses `prisma db push`, not the migrations workflow.** No
+    > `prisma/migrations/` folder exists. Schema changes are applied directly
+    > with `db push`, then committed alongside the schema.prisma change.
+    > Don't run `prisma migrate dev` against prod — it would try to baseline
+    > an existing schema and create drift problems. If you ever want to
+    > switch to the migrations workflow, baseline first with
+    > `prisma migrate resolve --applied <name>` per Prisma's docs.
 
 5. **Create Azure Static Web App**:
     - Portal → Create resource → "Static Web App"

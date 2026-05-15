@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { formatMoney } from '@/lib/utils';
+import { OffersList, type OfferRow } from '@/components/OffersList';
 
 /**
  * Dedicated index of every offer the signed-in user has saved (excluding the
@@ -52,50 +52,19 @@ export default async function OffersIndexPage() {
           }
         />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {offers.map((o) => (
-            <Link
-              key={o.id}
-              href={`/offers/${o.id}`}
-              className="card block transition-shadow hover:shadow-md"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="text-lg font-semibold">{o.company.name}</div>
-                  <div className="text-sm text-[rgb(var(--muted-foreground))]">
-                    {o.title} {o.level ? `· ${o.level}` : ''} · {o.location}
-                  </div>
-                </div>
-              </div>
-              {o.compensation && (
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  <Stat
-                    label="Base"
-                    value={formatMoney(o.compensation.baseSalary, 'INR', { compact: true })}
-                  />
-                  <Stat
-                    label="Equity"
-                    value={formatMoney(o.compensation.equityTotal, 'INR', { compact: true })}
-                  />
-                  <Stat
-                    label="Sign-on"
-                    value={formatMoney(o.compensation.signOnBonus, 'INR', { compact: true })}
-                  />
-                </div>
-              )}
-            </Link>
-          ))}
-        </div>
+        <OffersList
+          items={offers.map<OfferRow>((o) => ({
+            id: o.id,
+            companyName: o.company.name,
+            title: o.title,
+            level: o.level,
+            location: o.location,
+            baseSalary: o.compensation?.baseSalary ?? null,
+            equityTotal: o.compensation?.equityTotal ?? null,
+            signOnBonus: o.compensation?.signOnBonus ?? null,
+          }))}
+        />
       )}
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-xs text-[rgb(var(--muted-foreground))]">{label}</div>
-      <div className="text-sm font-semibold">{value}</div>
     </div>
   );
 }

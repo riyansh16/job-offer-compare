@@ -138,6 +138,29 @@ export async function deleteOffer(id: string) {
   await prisma.jobOffer.deleteMany({ where: { id, userId } });
   revalidatePath('/dashboard');
   revalidatePath('/current');
+  revalidatePath('/offers');
+}
+
+/**
+ * Bulk-delete multiple offers in one round-trip. Same shape and limits as
+ * `deleteComparisons`. Saved comparisons are unaffected — they reference
+ * offers only by CSV id (no FK) and keep their immutable snapshot, so a
+ * deleted offer just stops showing up in pages that look it up live.
+ */
+export async function deleteOffers(ids: string[]): Promise<{ deleted: number }> {
+  const userId = await requireUserId();
+  const cleaned = Array.from(new Set(ids.filter((s) => typeof s === 'string' && s.length > 0)));
+  if (cleaned.length === 0) return { deleted: 0 };
+  if (cleaned.length > 100) {
+    throw new Error('Too many offers selected (max 100 at a time).');
+  }
+  const res = await prisma.jobOffer.deleteMany({
+    where: { id: { in: cleaned }, userId },
+  });
+  revalidatePath('/dashboard');
+  revalidatePath('/current');
+  revalidatePath('/offers');
+  return { deleted: res.count };
 }
 
 /** Promotes an offer to be the user's current/baseline role (clearing any other current). */
