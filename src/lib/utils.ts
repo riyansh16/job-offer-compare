@@ -42,11 +42,11 @@ function formatIndianCompact(value: number, currency: string): string {
 
 export function formatMoney(
   value: number,
-  currency = 'USD',
+  currency = 'INR',
   opts: { compact?: boolean } = {},
 ): string {
   if (!Number.isFinite(value)) return '—';
-  const cur = (currency || 'USD').toUpperCase();
+  const cur = (currency || 'INR').toUpperCase();
 
   // Indian-numbering currencies use Lakh/Crore in compact mode.
   if (opts.compact && INDIAN_CURRENCIES.has(cur)) {

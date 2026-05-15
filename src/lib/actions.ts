@@ -29,7 +29,6 @@ const offerSchema = z.object({
   location: z.string().min(1),
   isCurrent: z.boolean().optional(),
   baseSalary: z.coerce.number().min(0),
-  currency: z.string().default('INR'),
   targetBonusPct: z.coerce.number().min(0).max(200).default(0),
   signOnBonus: z.coerce.number().min(0).default(0),
   equityTotal: z.coerce.number().min(0).default(0),
@@ -84,7 +83,6 @@ export async function upsertOffer(id: string | null, formData: FormData) {
         compensation: {
           update: {
             baseSalary: data.baseSalary,
-            currency: data.currency,
             targetBonusPct: data.targetBonusPct,
             signOnBonus: data.signOnBonus,
             equityTotal: data.equityTotal,
@@ -115,7 +113,6 @@ export async function upsertOffer(id: string | null, formData: FormData) {
       compensation: {
         create: {
           baseSalary: data.baseSalary,
-          currency: data.currency,
           targetBonusPct: data.targetBonusPct,
           signOnBonus: data.signOnBonus,
           equityTotal: data.equityTotal,

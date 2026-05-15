@@ -76,9 +76,9 @@ export default async function DashboardPage() {
             </div>
             {current.compensation && (
               <div className="mt-3 grid grid-cols-4 gap-2">
-                <Stat label={`Base (${current.compensation.currency})`} value={formatMoney(current.compensation.baseSalary, current.compensation.currency, { compact: true })} />
+                <Stat label="Base" value={formatMoney(current.compensation.baseSalary, 'INR', { compact: true })} />
                 <Stat label="Bonus %" value={`${current.compensation.targetBonusPct}%`} />
-                <Stat label="Equity" value={formatMoney(current.compensation.equityTotal, current.compensation.currency, { compact: true })} />
+                <Stat label="Equity" value={formatMoney(current.compensation.equityTotal, 'INR', { compact: true })} />
                 <Stat label="Mode" value={current.compensation.workMode} />
               </div>
             )}
@@ -128,9 +128,9 @@ export default async function DashboardPage() {
                 </div>
                 {o.compensation && (
                   <div className="mt-3 grid grid-cols-3 gap-2">
-                    <Stat label={`Base (${o.compensation.currency})`} value={formatMoney(o.compensation.baseSalary, o.compensation.currency, { compact: true })} />
-                    <Stat label="Equity" value={formatMoney(o.compensation.equityTotal, o.compensation.currency, { compact: true })} />
-                    <Stat label="Sign-on" value={formatMoney(o.compensation.signOnBonus, o.compensation.currency, { compact: true })} />
+                    <Stat label="Base" value={formatMoney(o.compensation.baseSalary, 'INR', { compact: true })} />
+                    <Stat label="Equity" value={formatMoney(o.compensation.equityTotal, 'INR', { compact: true })} />
+                    <Stat label="Sign-on" value={formatMoney(o.compensation.signOnBonus, 'INR', { compact: true })} />
                   </div>
                 )}
               </Link>

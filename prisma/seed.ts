@@ -441,8 +441,7 @@ async function main() {
   const googl = await findCompany('alphabet');
   const stripe = await findCompany('stripe');
   const razorpay = await findCompany('razorpay');
-  const wise = await findCompany('wise');
-  if (!msft || !googl || !stripe || !razorpay || !wise)
+  if (!msft || !googl || !stripe || !razorpay)
     throw new Error('seed: failed to resolve demo companies');
 
   const baseSchedule = JSON.stringify({ years: 4, cliffMonths: 12, cadence: 'quarterly' });
@@ -488,13 +487,13 @@ async function main() {
     },
   });
 
-  // Non-USD examples to showcase currency conversion.
+  // Indian-market example.
   await prisma.jobOffer.create({
     data: {
       userId: user.id, companyId: razorpay.id, title: 'Senior Engineer',
       location: 'Bangalore, IN', status: 'Active',
       compensation: { create: {
-        baseSalary: 4500000, currency: 'INR',
+        baseSalary: 4500000,
         // ₹6M total grant / 4 years = ₹1.5M/yr.
         targetBonusPct: 12, signOnBonus: 500000, equityTotal: 1500000,
         equityVestSchedule: baseSchedule, benefitsValueAnnual: 200000, ptoDays: 25,
@@ -503,21 +502,7 @@ async function main() {
     },
   });
 
-  await prisma.jobOffer.create({
-    data: {
-      userId: user.id, companyId: wise.id, title: 'Senior Backend Engineer',
-      location: 'London, UK', status: 'Active',
-      compensation: { create: {
-        baseSalary: 95000, currency: 'GBP',
-        // £80K total grant / 4 years = £20K/yr.
-        targetBonusPct: 10, signOnBonus: 5000, equityTotal: 20000,
-        equityVestSchedule: baseSchedule, benefitsValueAnnual: 6000, ptoDays: 28,
-        workMode: 'Hybrid', commuteCostMonthly: 200, qualitativeScore: 76,
-      } },
-    },
-  });
-
-  console.log('Demo offers created (incl. INR + GBP). Sign in at /auth/signin with demo@example.com / demo12345');
+  console.log('Demo offers created. Sign in at /auth/signin with demo@example.com / demo12345');
 }
 
 main()

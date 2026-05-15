@@ -68,11 +68,7 @@ export function ComparisonResults({ snapshot }: { snapshot: ComparisonResult }) 
               </div>
               <div className="text-xs text-[rgb(var(--muted-foreground))]">
                 {r.title} ·{' '}
-                {formatMoney(
-                  r.totalAnnualValue * (r.fxToNative ?? 1),
-                  r.nativeCurrency ?? 'USD',
-                  { compact: true },
-                )}{' '}
+                {formatMoney(r.totalAnnualValue, 'INR', { compact: true })}{' '}
                 effective annual
               </div>
             </li>
@@ -108,9 +104,9 @@ export function ComparisonResults({ snapshot }: { snapshot: ComparisonResult }) 
       <section className="card">
         <h2 className="mb-3 font-semibold">Detailed breakdown</h2>
         <p className="mb-3 text-xs text-[rgb(var(--muted-foreground))]">
-          Money values shown in each offer&apos;s native currency, as you entered them.
-          Each metric is normalized 0–100 across offers, then weighted to produce the total score.
-          Swipe horizontally on small screens to compare more offers.
+          Money values shown in INR (₹). Each metric is normalized 0–100 across offers,
+          then weighted to produce the total score. Swipe horizontally on small screens to
+          compare more offers.
         </p>
         {/*
           Mobile-friendly horizontal scroller:
@@ -130,11 +126,6 @@ export function ComparisonResults({ snapshot }: { snapshot: ComparisonResult }) 
               {ranked.map((r) => (
                 <th key={r.offerId} className="snap-start py-2 px-3 text-right">
                   <div className="whitespace-nowrap">{r.companyName}</div>
-                  {r.nativeCurrency && r.nativeCurrency !== 'INR' && (
-                    <div className="text-[10px] font-normal text-[rgb(var(--muted-foreground))]">
-                      ({r.nativeCurrency})
-                    </div>
-                  )}
                 </th>
               ))}
             </tr>
@@ -161,9 +152,7 @@ export function ComparisonResults({ snapshot }: { snapshot: ComparisonResult }) 
                   let display: string;
                   let growthHint: string | null = null;
                   if (isMoney) {
-                    // Convert engine-internal INR value back to the offer's native currency.
-                    const nativeAmount = (m.raw) * (r.fxToNative ?? 1);
-                    display = formatMoney(nativeAmount, r.nativeCurrency ?? 'INR', { compact: true });
+                    display = formatMoney(m.raw, 'INR', { compact: true });
                     // For equity, surface the growth factor that was applied.
                     if (k === 'equity' && r.equityGrowthAppliedPct != null && r.equityGrowthAppliedPct !== 0) {
                       const sign = r.equityGrowthAppliedPct > 0 ? '+' : '';

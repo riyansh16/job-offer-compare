@@ -7,7 +7,6 @@ import {
 } from '../engine';
 import { computeHistoricalCagr } from './equity';
 import { computeRatingAspects } from '../providers/review';
-import { getRate } from '../providers/currency';
 import { getStockCagr } from '../providers/stockPrice';
 import { refreshCompanySentiment } from '../providers/review';
 
@@ -30,8 +29,8 @@ interface VestScheduleJson {
  * Load the given offers from the DB, translate them into engine inputs
  * (including blended review scores), and produce a ranked comparison result.
  *
- * Engine-internal currency is INR. Non-INR offers (v2: international support)
- * are FX-converted before scoring. FX rates come from the free Frankfurter API.
+ * All monetary values are in INR; the product currently supports only Indian
+ * offers, so no FX conversion is needed.
  */
 export async function runComparisonForOffers(
   userId: string,
@@ -46,25 +45,6 @@ export async function runComparisonForOffers(
       company: { include: { sentiments: true } },
     },
   });
-
-  // Resolve FX rates (currency -> INR) once per distinct currency.
-  // INR is the internal scoring currency. The supported-currencies dropdown
-  // exists for v2 international support; today every offer is expected to be
-  // in INR, so we skip the FX provider entirely when no non-INR offers exist.
-  const distinctCurrencies = Array.from(
-    new Set(offers.map((o) => (o.compensation?.currency ?? 'INR').toUpperCase())),
-  );
-  const fxRates: Record<string, number> = { INR: 1 };
-  const nonInrCurrencies = distinctCurrencies.filter((c) => c !== 'INR');
-  if (nonInrCurrencies.length > 0) {
-    await Promise.all(
-      nonInrCurrencies.map(async (cur) => {
-        const rate = await getRate(cur, 'INR');
-        // If the rate is unavailable, fall back to 1 (preserve the raw amount).
-        fxRates[cur] = rate ?? 1;
-      }),
-    );
-  }
 
   // Auto-refresh stock prices + sentiment for every selected company before
   // scoring. Each provider has its own cache (stocks: 6h, sentiment: 7d) so
@@ -139,8 +119,6 @@ export async function runComparisonForOffers(
     } catch {
       vest = { years: 4, cliffMonths: 12, cadence: 'quarterly' };
     }
-    const cur = (c.currency || 'INR').toUpperCase();
-    const fx = fxRates[cur] ?? 1;
     // Apply this company's stock-growth assumption to next-year equity:
     // user override wins; otherwise falls back to cached trailing 5y CAGR.
     // Clamped to a sane range so a freak outlier (e.g. -90% or +200%) doesn't dominate.
@@ -176,36 +154,22 @@ export async function runComparisonForOffers(
           }
         : undefined,
       compensation: {
-        baseSalary: c.baseSalary * fx,
-        currency: 'INR',
+        baseSalary: c.baseSalary,
         targetBonusPct: c.targetBonusPct,
-        signOnBonus: c.signOnBonus * fx,
-        equityTotal: c.equityTotal * fx * growthMultiplier,
+        signOnBonus: c.signOnBonus,
+        equityTotal: c.equityTotal * growthMultiplier,
         equityVestSchedule: vest,
-        benefitsValueAnnual: c.benefitsValueAnnual * fx,
+        benefitsValueAnnual: c.benefitsValueAnnual,
         ptoDays: c.ptoDays,
         workMode: c.workMode as OfferInput['compensation']['workMode'],
-        commuteCostMonthly: c.commuteCostMonthly * fx,
+        commuteCostMonthly: c.commuteCostMonthly,
         qualitativeScore: c.qualitativeScore,
       },
     };
   });
 
   const result = compareOffers(inputs, weights, opts);
-  // Attach per-offer native-currency info so the UI can display raw amounts
-  // in the user's chosen currency instead of the engine-internal INR values.
-  const fxByOfferId = new Map<string, { currency: string; fxToNative: number }>();
-  for (const o of offersWithFreshData) {
-    const cur = (o.compensation?.currency || 'INR').toUpperCase();
-    const inrToNative = cur === 'INR' ? 1 : 1 / (fxRates[cur] ?? 1);
-    fxByOfferId.set(o.id, { currency: cur, fxToNative: inrToNative });
-  }
   for (const r of result.results) {
-    const fx = fxByOfferId.get(r.offerId);
-    if (fx) {
-      r.nativeCurrency = fx.currency;
-      r.fxToNative = fx.fxToNative;
-    }
     const g = growthByOfferId.get(r.offerId);
     if (g) {
       r.equityGrowthAppliedPct = g.pct;

@@ -23,7 +23,6 @@ export interface VestSchedule {
 
 export interface CompensationInput {
   baseSalary: number;
-  currency?: string;
   targetBonusPct: number;
   signOnBonus: number;
   equityTotal: number;
@@ -107,7 +106,7 @@ export const METRIC_LABELS: Record<MetricKey, string> = {
 };
 
 export interface MetricBreakdown {
-  /** Raw value used for both display and scoring. UI converts to native currency for display. */
+  /** Raw INR value used for both display and scoring. */
   raw: number;
   normalized: number; // 0..100
   weight: number; // 0..100
@@ -122,10 +121,6 @@ export interface OfferResult {
   totalScore: number; // 0..100
   rank: number;
   metrics: Record<MetricKey, MetricBreakdown>;
-  /** Original currency the offer was entered in (before FX-to-USD). */
-  nativeCurrency?: string;
-  /** Multiplier to convert engine-internal USD values back to native. */
-  fxToNative?: number;
   /** Applied stock-growth assumption used to scale equity (e.g. 10.94 means +10.94%/yr).
    *  Comes from the user override if set, else cached trailing 5y CAGR, else 0. */
   equityGrowthAppliedPct?: number;

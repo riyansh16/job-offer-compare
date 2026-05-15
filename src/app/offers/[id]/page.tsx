@@ -41,11 +41,11 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
 
   const summaryView = (
     <section className="card grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-      <Stat label={`Base (${c.currency})`} value={formatMoney(c.baseSalary, c.currency)} />
+      <Stat label="Base" value={formatMoney(c.baseSalary, 'INR')} />
       <Stat label="Bonus %" value={`${c.targetBonusPct}%`} />
-      <Stat label="Sign-on" value={formatMoney(c.signOnBonus, c.currency)} />
-      <Stat label="Equity / yr" value={formatMoney(c.equityTotal, c.currency)} />
-      <Stat label="Benefits" value={formatMoney(c.benefitsValueAnnual, c.currency)} />
+      <Stat label="Sign-on" value={formatMoney(c.signOnBonus, 'INR')} />
+      <Stat label="Equity / yr" value={formatMoney(c.equityTotal, 'INR')} />
+      <Stat label="Benefits" value={formatMoney(c.benefitsValueAnnual, 'INR')} />
       <Stat label="Mode" value={c.workMode} />
       <Stat label="Growth/fit" value={`${c.qualitativeScore}/100`} />
     </section>
@@ -64,7 +64,6 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
           location: offer.location,
           isCurrent: offer.isCurrent,
           baseSalary: c.baseSalary,
-          currency: c.currency,
           targetBonusPct: c.targetBonusPct,
           signOnBonus: c.signOnBonus,
           equityTotal: c.equityTotal,

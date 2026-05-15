@@ -4,7 +4,6 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { upsertOffer } from '@/lib/actions';
-import { SUPPORTED_CURRENCIES } from '@/lib/providers/currency';
 import { offerSchema, validateFormData } from '@/lib/forms/validation';
 import { Spinner } from './ui/Spinner';
 import { Combobox } from './ui/Combobox';
@@ -22,7 +21,6 @@ export interface OfferInitial {
   location?: string;
   isCurrent?: boolean;
   baseSalary?: number;
-  currency?: string;
   targetBonusPct?: number;
   signOnBonus?: number;
   equityTotal?: number;
@@ -211,15 +209,7 @@ export function OfferForm({
       </fieldset>
 
       <fieldset className="grid gap-4 card sm:grid-cols-2 lg:grid-cols-3">
-        <legend className="px-1 text-sm font-semibold">Compensation</legend>
-        <div>
-          <label htmlFor="currency" className="label">Currency</label>
-          <select id="currency" name="currency" defaultValue={initial?.currency ?? 'INR'} className="input">
-            {SUPPORTED_CURRENCIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </div>
+        <legend className="px-1 text-sm font-semibold">Compensation (INR)</legend>
         <NumField
           label="Base salary"
           name="baseSalary"

@@ -47,8 +47,7 @@ export function commuteCostAnnual(monthly: number, mode: WorkMode): number {
 
 /**
  * Compute the composite annual value of a compensation package.
- * All amounts are taken at face value in their entered currency (the runner
- * normalizes via FX before calling the engine).
+ * All amounts are in INR.
  */
 export function totalAnnualValue(comp: CompensationInput): number {
   // equityTotal field is interpreted as "$ vesting per year" (see equity.ts).

@@ -40,12 +40,8 @@ function snapshot(input: PromptInput): string {
         title: r.title,
         rank: r.rank,
         totalScore: Number(r.totalScore.toFixed(1)),
-        // Engine-internal currency is INR; the UI converts to nativeCurrency
-        // for display, but the AI is told to think in INR throughout.
+        // All monetary values are in INR.
         annualValueInr: Math.round(r.totalAnnualValue),
-        // Original currency the user entered (FYI for the model — citations
-        // should still be in INR per the system rules above).
-        nativeCurrency: r.nativeCurrency ?? 'INR',
         metrics: Object.fromEntries(
           Object.entries(r.metrics).map(([k, v]) => {
             const isMoney = MONEY_METRICS.has(k);

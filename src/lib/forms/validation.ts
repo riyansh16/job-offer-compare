@@ -19,7 +19,6 @@ export const offerSchema = z.object({
   title: z.string().trim().min(1, 'Job title is required'),
   location: z.string().trim().min(1, 'Location is required'),
   level: z.string().optional(),
-  currency: z.string().optional(),
   workMode: z.string().optional(),
   baseSalary: optionalPositive,
   targetBonusPct: z
