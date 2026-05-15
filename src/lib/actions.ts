@@ -82,28 +82,37 @@ export async function upsertOffer(id: string | null, formData: FormData) {
     return updated;
   }
 
-  const created = await prisma.jobOffer.create({
-    data: {
-      userId,
-      companyId: data.companyId,
-      title: data.title,
-      level: data.level,
-      location: data.location,
-      isCurrent: data.isCurrent ?? false,
-      compensation: {
-        create: {
-          baseSalary: data.baseSalary,
-          targetBonusPct: data.targetBonusPct,
-          signOnBonus: data.signOnBonus,
-          equityTotal: data.equityTotal,
-          benefitsValueAnnual: data.benefitsValueAnnual,
-          ptoDays: data.ptoDays,
-          workMode: data.workMode,
-          commuteCostMonthly: data.commuteCostMonthly,
-          qualitativeScore: data.qualitativeScore,
+  const created = await prisma.$transaction(async (tx) => {
+    const offer = await tx.jobOffer.create({
+      data: {
+        userId,
+        companyId: data.companyId,
+        title: data.title,
+        level: data.level,
+        location: data.location,
+        isCurrent: data.isCurrent ?? false,
+        compensation: {
+          create: {
+            baseSalary: data.baseSalary,
+            targetBonusPct: data.targetBonusPct,
+            signOnBonus: data.signOnBonus,
+            equityTotal: data.equityTotal,
+            benefitsValueAnnual: data.benefitsValueAnnual,
+            ptoDays: data.ptoDays,
+            workMode: data.workMode,
+            commuteCostMonthly: data.commuteCostMonthly,
+            qualitativeScore: data.qualitativeScore,
+          },
         },
       },
-    },
+    });
+    // Bump the lifetime counter atomically with the create. Never decremented
+    // on delete — see User.lifetimeOffers comment in prisma/schema.prisma.
+    await tx.user.update({
+      where: { id: userId },
+      data: { lifetimeOffers: { increment: 1 } },
+    });
+    return offer;
   });
   await maybeUpdateYoe(userId, data);
   revalidatePath('/dashboard');
@@ -162,15 +171,24 @@ export async function createComparison(args: {
     equityGrowthPct: args.equityGrowthPct,
     growthOverridesByCompany: args.growthOverridesByCompany,
   });
-  const created = await prisma.comparison.create({
-    data: {
-      userId,
-      name: args.name,
-      profileId: args.profileId ?? null,
-      offerIdsCsv: args.offerIds.join(','),
-      equityGrowthPct: args.equityGrowthPct,
-      snapshotJson: JSON.stringify(result),
-    },
+  const created = await prisma.$transaction(async (tx) => {
+    const comparison = await tx.comparison.create({
+      data: {
+        userId,
+        name: args.name,
+        profileId: args.profileId ?? null,
+        offerIdsCsv: args.offerIds.join(','),
+        equityGrowthPct: args.equityGrowthPct,
+        snapshotJson: JSON.stringify(result),
+      },
+    });
+    // Bump the lifetime counter atomically with the create. Never decremented
+    // on delete — see User.lifetimeComparisons comment in prisma/schema.prisma.
+    await tx.user.update({
+      where: { id: userId },
+      data: { lifetimeComparisons: { increment: 1 } },
+    });
+    return comparison;
   });
   revalidatePath('/dashboard');
   redirect(`/compare/${created.id}`);

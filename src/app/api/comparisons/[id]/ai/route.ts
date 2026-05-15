@@ -72,11 +72,23 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         // regenerating an insight replaces the previous one instead of
         // accumulating duplicates. The unique constraint backing this lives
         // in `prisma/schema.prisma` on the AiInsight model.
-        await prisma.aiInsight.upsert({
-          where: { comparisonId_kind: { comparisonId: id, kind } },
-          create: { comparisonId: id, kind, content: full, model: provider.model },
-          update: { content: full, model: provider.model, generatedAt: new Date() },
-        });
+        //
+        // Bumping `User.lifetimeAiInsights` happens in the same transaction
+        // and ONLY on this code path \u2014 never on the `if (cached)` early
+        // return above \u2014 so the counter reflects real LLM API calls (the
+        // cost-attributable number), not cached views. See the counter's
+        // doc-comment in prisma/schema.prisma for the full rationale.
+        await prisma.$transaction([
+          prisma.aiInsight.upsert({
+            where: { comparisonId_kind: { comparisonId: id, kind } },
+            create: { comparisonId: id, kind, content: full, model: provider.model },
+            update: { content: full, model: provider.model, generatedAt: new Date() },
+          }),
+          prisma.user.update({
+            where: { id: userId },
+            data: { lifetimeAiInsights: { increment: 1 } },
+          }),
+        ]);
         controller.close();
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Unknown error';

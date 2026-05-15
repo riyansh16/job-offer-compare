@@ -34,6 +34,20 @@ model User {
   // a separate UsageEvent table.
   lastSignInAt    DateTime?
   signInCount     Int       @default(0)
+
+  // Monotonic lifetime counters. Bumped on create (inside a $transaction
+  // alongside the entity insert), NEVER decremented on delete. Together
+  // with the row-based count() queries on /admin/stats this gives us:
+  //   - "currently exists" (count of JobOffer/Comparison/AiInsight rows)
+  //   - "ever happened"    (sum of lifetime* across all users)
+  //   - "delete rate"      ((lifetime - current) / lifetime)
+  // lifetimeAiInsights is bumped only when the LLM was actually called
+  // (not on cache hits in src/app/api/comparisons/[id]/ai/route.ts), so
+  // it doubles as the real cost-attributable usage number.
+  lifetimeOffers       Int @default(0)
+  lifetimeComparisons  Int @default(0)
+  lifetimeAiInsights   Int @default(0)
+
   createdAt      DateTime  @default(now())
 
   accounts       Account[]
