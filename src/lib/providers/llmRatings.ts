@@ -119,9 +119,10 @@ async function callGemini(
         return { ok: false, reason: 'failed' };
       }
       const delayMs = extractRetryDelayMs(err);
-      // Long retryDelay (or none) → daily quota. Surface as exhausted so the
-      // outer loop rotates to the next API key.
-      if (delayMs === 0 || delayMs > 60_000) {
+      // Long retryDelay (or none) → daily quota, OR a near-minute backoff that
+      // almost always precedes RPD exhaustion. Surface as exhausted so the
+      // outer loop rotates to the next API key instead of idling 30–60s here.
+      if (delayMs === 0 || delayMs > 30_000) {
         console.warn(
           `[llmRatings] daily quota hit for "${companyName}" on key …${apiKey.slice(-6)}`,
         );
@@ -158,6 +159,19 @@ Rules:
 - If the company has no Indeed presence at all, set notFound=true and return
   null for every numeric field.
 
+PRIORITY — the overall rating and review count:
+- The "Overall rating" appears at the TOP of every Indeed company page,
+  displayed as a big number (e.g. "4.2") next to a star icon, with text
+  like "Based on 3,072 reviews" directly below it.
+- This number is REQUIRED whenever the page exists. If you can see ANY
+  sub-ratings (Work-Life Balance, Pay, Management, etc.), the overall
+  rating is ALSO on that same page — find it and include it.
+- Do NOT return only sub-ratings. If you cannot find the overall rating
+  but found sub-ratings, search the page again specifically for the
+  large headline number next to the star icon at the top.
+- The same applies to indeedReviewCount: it is shown as "Based on N reviews"
+  right below the overall rating. Extract that integer.
+
 Output schema (return EXACTLY this shape, all keys present):
 {
   "indeedRating": number|null,
@@ -191,12 +205,12 @@ export async function fetchLlmRatings(
     // Either no key configured at all, or every key is exhausted today.
     // Throw a distinct error so the batch processor knows NOT to mark the
     // company as attempted (we never made a real call).
-    if (
-      !process.env.GEMINI_API_KEY &&
-      !process.env.GEMINI_API_KEY_2 &&
-      !process.env.GEMINI_API_KEY_3 &&
-      !process.env.GEMINI_API_KEY_4
-    ) {
+    const anyConfigured =
+      !!process.env.GEMINI_API_KEY ||
+      Array.from({ length: 9 }, (_, i) => process.env[`GEMINI_API_KEY_${i + 2}`]).some(
+        (v) => !!v,
+      );
+    if (!anyConfigured) {
       throw new GeminiQuotaExhaustedError('No GEMINI_API_KEY* env var set');
     }
     throw new GeminiQuotaExhaustedError('All Gemini API keys are quota-exhausted');
@@ -293,6 +307,33 @@ Make sure indeedUrl is the exact Indeed company-overview page (e.g. /cmp/Company
     sourceUrls,
     notFound: parsed.notFound === true,
   };
+
+  // Debug logging: explain WHY a company ends up with no usable rating.
+  // Enable with LLM_RATINGS_DEBUG=1 in env. Quiet by default to keep batch
+  // output clean for daily-cron runs.
+  if (process.env.LLM_RATINGS_DEBUG === '1') {
+    const reasons: string[] = [];
+    if (result.notFound) reasons.push('model:notFound');
+    if (!result.indeedUrl) {
+      reasons.push(
+        typeof parsed.indeedUrl === 'string'
+          ? `bad-url:${String(parsed.indeedUrl).slice(0, 80)}`
+          : 'no-url',
+      );
+    }
+    if (result.indeedRating == null) {
+      reasons.push(
+        typeof parsed.indeedRating === 'number'
+          ? `rating-out-of-range:${parsed.indeedRating}`
+          : 'no-rating',
+      );
+    }
+    if (reasons.length > 0) {
+      console.warn(
+        `[llmRatings:debug] "${companyName}" → ${reasons.join(', ')} (groundingUrls=${sourceUrls.length})`,
+      );
+    }
+  }
 
   // Anti-hallucination guard: if there's no indeedUrl, drop ALL Indeed numbers.
   // The model invented them without a verifiable source.
