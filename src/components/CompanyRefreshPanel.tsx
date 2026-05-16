@@ -15,6 +15,7 @@ interface Sentiment {
 export function CompanyRefreshPanel({
   companyId,
   ticker,
+  isPublic,
   sentiments,
   initialCurrentPrice,
   initialCagr5y,
@@ -23,6 +24,7 @@ export function CompanyRefreshPanel({
 }: {
   companyId: string;
   ticker: string | null;
+  isPublic?: boolean;
   sentiments: Sentiment[];
   initialCurrentPrice?: number | null;
   initialCagr5y?: number | null;
@@ -130,7 +132,13 @@ export function CompanyRefreshPanel({
               onClick={refreshStock}
               disabled={busy || !ticker}
               className="btn-outline text-xs"
-              title={ticker ? 'Refresh' : 'Set a ticker symbol to enable.'}
+              title={
+                ticker
+                  ? 'Refresh'
+                  : isPublic === false
+                    ? 'Private company — no public stock.'
+                    : 'Set a ticker symbol to enable.'
+              }
             >
               {busy && <Spinner size={12} label="Refreshing" />}
               {busy ? 'Fetching…' : 'Refresh'}
@@ -158,6 +166,10 @@ export function CompanyRefreshPanel({
                 </p>
               )}
             </>
+          ) : isPublic === false ? (
+            <p className="text-xs text-[rgb(var(--muted-foreground))]">
+              Private company — no public stock data available.
+            </p>
           ) : (
             <p className="text-xs text-[rgb(var(--muted-foreground))]">
               Set a ticker symbol on this company to enable stock CAGR.

@@ -103,6 +103,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
       <CompanyRefreshPanel
         companyId={company.id}
         ticker={company.tickerSymbol ?? null}
+        isPublic={company.isPublic}
         sentiments={company.sentiments.map((s) => ({
           source: s.source,
           score: s.score,
