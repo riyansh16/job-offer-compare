@@ -50,18 +50,30 @@ async function main() {
     ? Math.max(0, parseInt(intervalArg.split('=')[1], 10) || defaultInterval)
     : defaultInterval;
 
+  // CLI flag: --since-hours=N restricts candidates to companies created within
+  // the last N hours. Useful when escalating a freshly-seeded batch and you
+  // don't want to spend quota retrying the long-tail "known unrecoverable"
+  // legacy rows that were already escalated and still came back empty.
+  const sinceArg = process.argv.find((a) => a.startsWith('--since-hours='));
+  const sinceHours = sinceArg ? parseInt(sinceArg.split('=')[1], 10) || 0 : 0;
+  const createdAtFilter = sinceHours > 0
+    ? { gt: new Date(Date.now() - sinceHours * 3600 * 1000) }
+    : undefined;
+
   // Find candidates: previously attempted but never returned usable data.
   const candidates = await prisma.company.findMany({
     where: {
       indeedRating: null,
       ratingsLastFetchAttemptAt: { not: null },
+      ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
     },
     orderBy: [{ ratingsLastFetchAttemptAt: 'asc' }, { name: 'asc' }],
     select: { id: true, name: true },
   });
 
   console.log(
-    `Found ${candidates.length} 'tried, no data' companies eligible for escalation.\n`,
+    `Found ${candidates.length} 'tried, no data' companies eligible for escalation` +
+      (sinceHours > 0 ? ` (created within last ${sinceHours}h).\n` : '.\n'),
   );
 
   if (candidates.length === 0) {
@@ -86,6 +98,7 @@ async function main() {
   const result = await refreshRatingsBatch({
     batchSize: candidates.length,
     onlyMissing: true,
+    targetIds: candidates.map((c) => c.id),
     intervalMs,
     concurrency: 1,
     onProgress: (i, n, name, status) => {

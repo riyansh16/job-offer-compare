@@ -31,6 +31,13 @@ async function main() {
   // on successes, only retry the empties.
   const onlyMissing = process.argv.includes('--only-missing');
 
+  // CLI flag: --never-attempted strictly targets companies that have never
+  // been called against Gemini (ratingsLastFetchAttemptAt = null). Skips both
+  // successes AND known-stuck rows that returned no data last run. Best right
+  // after seeding a fresh batch of companies — don't burn quota retrying the
+  // long-tail startups Gemini can't find Indeed pages for.
+  const onlyNeverAttempted = process.argv.includes('--never-attempted');
+
   // CLI flag: --concurrency=N to fan out N parallel calls per batch.
   // Default 1 = sequential. 5 is a safe value within Gemini's 30 RPM cap.
   const concurrencyArg = process.argv.find((a) => a.startsWith('--concurrency='));
@@ -48,15 +55,19 @@ async function main() {
     : 14000;
 
   const total = await prisma.company.count();
-  const targetCount = onlyMissing
-    ? await prisma.company.count({ where: { indeedRating: null } })
-    : total;
+  const targetCount = onlyNeverAttempted
+    ? await prisma.company.count({ where: { ratingsLastFetchAttemptAt: null } })
+    : onlyMissing
+      ? await prisma.company.count({ where: { indeedRating: null } })
+      : total;
   console.log(
-    onlyMissing
-      ? `Refreshing ${targetCount} of ${total} companies (--only-missing: skipping ones with data)...`
-      : refreshAll
-        ? `Refreshing ALL ${total} companies (--all flag set)...`
-        : `Refreshing ${total} companies (stalest first; resumes from prior run)...`,
+    onlyNeverAttempted
+      ? `Refreshing ${targetCount} of ${total} companies (--never-attempted: virgin rows only)...`
+      : onlyMissing
+        ? `Refreshing ${targetCount} of ${total} companies (--only-missing: skipping ones with data)...`
+        : refreshAll
+          ? `Refreshing ALL ${total} companies (--all flag set)...`
+          : `Refreshing ${total} companies (stalest first; resumes from prior run)...`,
   );
   if (concurrency > 1) {
     console.log(`Concurrency: ${concurrency} parallel calls per batch.`);
@@ -66,6 +77,7 @@ async function main() {
     batchSize: targetCount,
     refreshAll,
     onlyMissing,
+    onlyNeverAttempted,
     intervalMs,
     concurrency,
     onProgress: (i, n, name, status) => {

@@ -19,12 +19,23 @@ export interface BatchOptions {
   /** If true, only target companies missing an Indeed rating. Skips companies
    *  that already have data, so we don't waste quota re-fetching successes. */
   onlyMissing?: boolean;
+  /** If true, only target companies that have NEVER been attempted
+   *  (ratingsLastFetchAttemptAt = null). Skips both successes AND known-stuck
+   *  rows that returned no data last time. Useful right after seeding a batch
+   *  of new companies — focus quota on virgin entries, not retries of known
+   *  hard-to-extract small startups. */
+  onlyNeverAttempted?: boolean;
   /** Pause between sequential calls (when concurrency=1). Default 4500ms (~13 RPM). */
   intervalMs?: number;
   /** Number of companies to fetch in parallel. Default 1 (sequential).
    *  Use 5+ for fast bulk runs when daily quota is fresh; the parallel batch
    *  will burst then wait `intervalMs` before the next batch. */
   concurrency?: number;
+  /** Explicit company id allow-list. When provided, only these rows are
+   *  considered (intersected with onlyMissing / onlyNeverAttempted filters).
+   *  Used by the escalation script to scope a retry to a freshly seeded
+   *  subset and skip the long-tail legacy stuck rows. */
+  targetIds?: string[];
   /** Optional progress callback. */
   onProgress?: (i: number, total: number, companyName: string, status: 'ok' | 'no-data' | 'fail') => void;
 }
@@ -44,12 +55,20 @@ export async function refreshRatingsBatch(opts: BatchOptions): Promise<BatchResu
 
   // Pick stalest companies first. Companies that have never been attempted
   // (ratingsLastFetchAttemptAt = null) come first because nulls sort low in SQLite ASC.
-  // onlyMissing filter: skip companies that already have an Indeed rating, so
-  // a partial bootstrap (e.g. quota cut us off at 50/164) can resume cheaply
-  // without re-fetching successes.
-  const where = opts.onlyMissing ? { indeedRating: null } : undefined;
+  // Filter precedence:
+  //   onlyNeverAttempted → strictly virgin rows (best after seeding new companies)
+  //   onlyMissing        → any row without a stored Indeed rating (default for resume)
+  //   neither            → everything, stalest first
+  const where = opts.onlyNeverAttempted
+    ? { ratingsLastFetchAttemptAt: null }
+    : opts.onlyMissing
+      ? { indeedRating: null }
+      : undefined;
+  const idFilter = opts.targetIds && opts.targetIds.length > 0
+    ? { id: { in: opts.targetIds } }
+    : undefined;
   const targets = await prisma.company.findMany({
-    where,
+    where: { ...(where ?? {}), ...(idFilter ?? {}) },
     orderBy: [{ ratingsLastFetchAttemptAt: 'asc' }, { name: 'asc' }],
     take: opts.batchSize,
     select: {
