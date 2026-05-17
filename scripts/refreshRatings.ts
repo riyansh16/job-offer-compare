@@ -54,20 +54,35 @@ async function main() {
     ? Math.max(0, parseInt(intervalArg.split('=')[1], 10) || 14000)
     : 14000;
 
+  // CLI flag: --batch-size=N caps how many companies this run will touch.
+  // Critical for the daily cron: the 9 Gemini keys are SHARED with user PDF
+  // extraction (gemini-2.5-flash), so a 238-call burst would either trip RPM
+  // limits or starve user uploads of quota. Daily cron uses --batch-size=10
+  // so the catalog cycles in ~24 days while using <5% of the daily flash-lite
+  // quota pool. Default (no flag) keeps the historical 'do everything' behavior
+  // for manual bootstrap / resume runs.
+  const batchSizeArg = process.argv.find((a) => a.startsWith('--batch-size='));
+  const batchSizeCap = batchSizeArg
+    ? Math.max(1, parseInt(batchSizeArg.split('=')[1], 10) || 0)
+    : null;
+
   const total = await prisma.company.count();
-  const targetCount = onlyNeverAttempted
+  const eligibleCount = onlyNeverAttempted
     ? await prisma.company.count({ where: { ratingsLastFetchAttemptAt: null } })
     : onlyMissing
       ? await prisma.company.count({ where: { indeedRating: null } })
       : total;
+  const targetCount = batchSizeCap != null
+    ? Math.min(batchSizeCap, eligibleCount)
+    : eligibleCount;
   console.log(
     onlyNeverAttempted
-      ? `Refreshing ${targetCount} of ${total} companies (--never-attempted: virgin rows only)...`
+      ? `Refreshing ${targetCount} of ${eligibleCount} virgin rows (of ${total} total)${batchSizeCap != null ? ` [--batch-size=${batchSizeCap}]` : ''}...`
       : onlyMissing
-        ? `Refreshing ${targetCount} of ${total} companies (--only-missing: skipping ones with data)...`
+        ? `Refreshing ${targetCount} of ${eligibleCount} companies without ratings (of ${total} total)${batchSizeCap != null ? ` [--batch-size=${batchSizeCap}]` : ''}...`
         : refreshAll
           ? `Refreshing ALL ${total} companies (--all flag set)...`
-          : `Refreshing ${total} companies (stalest first; resumes from prior run)...`,
+          : `Refreshing ${targetCount} of ${total} companies, stalest first${batchSizeCap != null ? ` [--batch-size=${batchSizeCap}]` : ''}...`,
   );
   if (concurrency > 1) {
     console.log(`Concurrency: ${concurrency} parallel calls per batch.`);

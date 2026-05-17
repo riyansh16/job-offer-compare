@@ -59,6 +59,7 @@ export default async function AdminStatsPage() {
     offerCountsByCompany,
     totalCompanies,
     staleRatings,
+    givenUpRatings,
     staleStock,
     topActive,
     lifetimeAgg,
@@ -100,6 +101,11 @@ export default async function AdminStatsPage() {
         ],
       },
     }),
+    // Given-up rows: bulk slice tried, escalation slice tried, both failed.
+    // After the daily cron stabilises this should hover at a small constant
+    // (companies that genuinely have no Indeed page). A growing number here
+    // means the prompt or the model changed and ratings are silently regressing.
+    prisma.company.count({ where: { ratingsFailureCount: { gte: 2 } } }),
     prisma.company.count({
       where: {
         AND: [
@@ -385,6 +391,7 @@ export default async function AdminStatsPage() {
           match the refresh cadences in <code>docs/HOW-IT-WORKS.md</code>.
         </p>
         <Stat label="Companies with stale or missing ratings (>30d)" value={staleRatings} />
+        <Stat label="Companies the ratings cron gave up on (≥2 failed attempts)" value={givenUpRatings} />
         <Stat label="Public companies with stale or missing stock data (>7d)" value={staleStock} />
       </section>
     </div>

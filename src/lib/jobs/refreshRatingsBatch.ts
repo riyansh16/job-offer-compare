@@ -38,6 +38,12 @@ export interface BatchOptions {
   targetIds?: string[];
   /** Optional progress callback. */
   onProgress?: (i: number, total: number, companyName: string, status: 'ok' | 'no-data' | 'fail') => void;
+  /** Skip rows whose ratingsFailureCount is >= this number. Default 2 (give-up
+   *  threshold = 1 bulk attempt + 1 pro escalation). The daily bulk cron sets
+   *  this so we don't waste flash-lite quota retrying rows that are clearly
+   *  unrecoverable. Set to a high value for manual reruns where the operator
+   *  explicitly wants to give a stuck row another shot. */
+  giveUpAtFailures?: number;
 }
 
 export interface BatchResult {
@@ -52,6 +58,7 @@ export async function refreshRatingsBatch(opts: BatchOptions): Promise<BatchResu
   const start = Date.now();
   const interval = opts.intervalMs ?? 4500;
   const concurrency = Math.max(1, opts.concurrency ?? 1);
+  const giveUpAt = opts.giveUpAtFailures ?? 2;
 
   // Pick stalest companies first. Companies that have never been attempted
   // (ratingsLastFetchAttemptAt = null) come first because nulls sort low in SQLite ASC.
@@ -59,6 +66,10 @@ export async function refreshRatingsBatch(opts: BatchOptions): Promise<BatchResu
   //   onlyNeverAttempted → strictly virgin rows (best after seeding new companies)
   //   onlyMissing        → any row without a stored Indeed rating (default for resume)
   //   neither            → everything, stalest first
+  // The ratingsFailureCount gate is always applied (unless caller bumps
+  // giveUpAtFailures very high) so the bulk slice doesn't keep poking rows we
+  // already gave up on. targetIds bypasses this when set — explicit retry beats
+  // the gate.
   const where = opts.onlyNeverAttempted
     ? { ratingsLastFetchAttemptAt: null }
     : opts.onlyMissing
@@ -67,8 +78,11 @@ export async function refreshRatingsBatch(opts: BatchOptions): Promise<BatchResu
   const idFilter = opts.targetIds && opts.targetIds.length > 0
     ? { id: { in: opts.targetIds } }
     : undefined;
+  const failureGate = idFilter
+    ? undefined // explicit targetIds override the give-up gate
+    : { ratingsFailureCount: { lt: giveUpAt } };
   const targets = await prisma.company.findMany({
-    where: { ...(where ?? {}), ...(idFilter ?? {}) },
+    where: { ...(where ?? {}), ...(idFilter ?? {}), ...(failureGate ?? {}) },
     orderBy: [{ ratingsLastFetchAttemptAt: 'asc' }, { name: 'asc' }],
     take: opts.batchSize,
     select: {
@@ -103,11 +117,16 @@ export async function refreshRatingsBatch(opts: BatchOptions): Promise<BatchResu
 
       if (r == null) {
         // Real failure (not quota): we did make a call, it just didn't return
-        // parseable data. Legit to record as attempted.
+        // parseable data. Legit to record as attempted, and bump the failure
+        // counter so the next day's bulk slice deprioritizes this row in
+        // favour of the pro-tier escalation slice.
         failed++;
         await prisma.company.update({
           where: { id: c.id },
-          data: { ratingsLastFetchAttemptAt: new Date() },
+          data: {
+            ratingsLastFetchAttemptAt: new Date(),
+            ratingsFailureCount: { increment: 1 },
+          },
         });
         return 'fail';
       }
@@ -131,8 +150,15 @@ export async function refreshRatingsBatch(opts: BatchOptions): Promise<BatchResu
       const gotAnyData = r.indeedRating != null;
       if (gotAnyData) {
         data.ratingsUpdatedAt = new Date();
+        // Reset the failure streak on success so the next monthly rotation
+        // picks this company normally instead of skipping it.
+        data.ratingsFailureCount = 0;
         withData++;
       } else {
+        // Model returned a JSON envelope but no usable overall rating (notFound
+        // or all-null sub-ratings). Treat as a failed attempt for cron-rotation
+        // purposes so the escalation slice gets a chance tomorrow.
+        data.ratingsFailureCount = { increment: 1 };
         noData++;
       }
       await prisma.company.update({ where: { id: c.id }, data });
@@ -150,7 +176,10 @@ export async function refreshRatingsBatch(opts: BatchOptions): Promise<BatchResu
       await prisma.company
         .update({
           where: { id: c.id },
-          data: { ratingsLastFetchAttemptAt: new Date() },
+          data: {
+            ratingsLastFetchAttemptAt: new Date(),
+            ratingsFailureCount: { increment: 1 },
+          },
         })
         .catch(() => null);
       return 'fail';

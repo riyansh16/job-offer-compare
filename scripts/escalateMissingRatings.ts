@@ -60,20 +60,44 @@ async function main() {
     ? { gt: new Date(Date.now() - sinceHours * 3600 * 1000) }
     : undefined;
 
-  // Find candidates: previously attempted but never returned usable data.
-  const candidates = await prisma.company.findMany({
+  // Find candidates: rows that flash-lite tried exactly once and failed.
+  // ratingsFailureCount = 1 is the sweet spot:
+  //   * 0 = never failed (don't touch — bulk slice owns these)
+  //   * 1 = yesterday's bulk failure (the rows we exist to rescue)
+  //   * >=2 = already given up on (don't keep burning pro quota)
+  // Order by ratingsLastFetchAttemptAt ASC so the OLDEST failed-once row gets
+  // pro attention first; that way a row stuck in failureCount=1 limbo because
+  // an earlier escalation slice already had a full --max queue doesn't lose
+  // its turn forever.
+  //
+  // --include-stuck overrides this to also pull in failureCount>=2 rows for
+  // manual recovery runs (e.g. after rotating a Gemini key that was misbehaving).
+  const includeStuck = process.argv.includes('--include-stuck');
+  const allCandidates = await prisma.company.findMany({
     where: {
       indeedRating: null,
       ratingsLastFetchAttemptAt: { not: null },
+      ratingsFailureCount: includeStuck ? { gte: 1 } : { equals: 1 },
       ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
     },
     orderBy: [{ ratingsLastFetchAttemptAt: 'asc' }, { name: 'asc' }],
     select: { id: true, name: true },
   });
 
+  // CLI flag: --max=N caps how many stuck rows this run will touch. Critical
+  // for the daily cron — pro has only 50 RPD per key (~450/day across 9 keys)
+  // AND those keys are shared with user PDF extraction on flash. Daily cron
+  // uses --max=5 so the 47-deep stuck pool cycles in ~10 days while leaving
+  // pro quota free for ad-hoc manual escalations.
+  const maxArg = process.argv.find((a) => a.startsWith('--max='));
+  const maxCap = maxArg ? Math.max(1, parseInt(maxArg.split('=')[1], 10) || 0) : null;
+  const candidates = maxCap != null ? allCandidates.slice(0, maxCap) : allCandidates;
+
   console.log(
-    `Found ${candidates.length} 'tried, no data' companies eligible for escalation` +
-      (sinceHours > 0 ? ` (created within last ${sinceHours}h).\n` : '.\n'),
+    `Found ${allCandidates.length} 'tried, no data' companies eligible for escalation` +
+      (sinceHours > 0 ? ` (created within last ${sinceHours}h)` : '') +
+      (maxCap != null ? `; processing ${candidates.length} this run [--max=${maxCap}]` : '') +
+      '.\n',
   );
 
   if (candidates.length === 0) {

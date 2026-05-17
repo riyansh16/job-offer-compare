@@ -138,6 +138,13 @@ model Company {
   // `lastFetchAttemptAt` (May 15, 2026) for clarity now that other fetched
   // signals (e.g. `layoffsUpdatedAt`) also live on this model.
   ratingsLastFetchAttemptAt DateTime?
+  // Consecutive failed-attempt counter. Reset to 0 on success. The daily
+  // cron uses this to (a) skip companies the bulk slice tried yesterday so
+  // the next day's escalation slice gets first crack at them, and (b) give
+  // up entirely after 2 attempts (1 bulk + 1 pro escalation), surfacing
+  // them in the admin "given up" tile instead of looping forever and
+  // burning quota on rows that don't have an Indeed page at all.
+  ratingsFailureCount Int @default(0)
 
   // Cached stock metrics from Yahoo Finance. Refreshed lazily by
   // src/lib/providers/stockPrice.ts when stockUpdatedAt is older than 6h
