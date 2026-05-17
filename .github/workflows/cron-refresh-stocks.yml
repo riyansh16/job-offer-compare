@@ -1,0 +1,40 @@
+name: Refresh stock prices (6h)
+
+# Runs every 6 hours at the top of the hour. Yahoo Finance is hostile to
+# polled scraping but the dataset is small (~50 tickered companies) and the
+# request is a single chart call per ticker, so we stay well under any
+# observed soft limit.
+#
+# The script honors the same 6h cache used by the on-read path in
+# src/lib/providers/stockPrice.ts; running on a 6h cadence means every row
+# is just-stale enough to trigger a refetch.
+#
+# Required GitHub Actions secrets:
+#   DATABASE_URL   - prod Postgres connection string
+# (Yahoo Finance is unauthenticated; no API keys needed.)
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: refresh-stocks
+  cancel-in-progress: true # if a run is still going when the next 6h tick fires, drop the late one
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Refresh stock prices
+        run: npx tsx scripts/refreshStockPrices.ts

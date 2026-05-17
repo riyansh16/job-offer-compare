@@ -1,0 +1,37 @@
+name: Refresh layoffs (weekly)
+
+# Runs every Monday at 04:00 UTC (09:30 IST).
+#
+# Pulls the full layoffs.fyi Airtable dataset (~2.6 MB) and re-derives
+# the 12-month layoff percentage for every catalog company in a single
+# pass. Total runtime ~30s.
+#
+# Required GitHub Actions secrets:
+#   DATABASE_URL   - prod Postgres connection string
+# (layoffs.fyi is unauthenticated; no API keys needed.)
+
+on:
+  schedule:
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: refresh-layoffs
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Refresh layoffs
+        run: npx tsx scripts/refreshLayoffs.ts

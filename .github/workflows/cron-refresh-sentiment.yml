@@ -1,0 +1,39 @@
+name: Refresh sentiment (monthly)
+
+# Runs on the 15th of every month at 03:00 UTC (08:30 IST). Mid-month
+# stagger from the ratings cron so the two big runs don't compete for
+# the same DB connection window.
+#
+# Walks every catalog company and refreshes Reddit + Hacker News sentiment.
+# refreshCompanySentiment already short-circuits when data is < 30d fresh,
+# so this is effectively "fill in anything that aged out."
+#
+# Required GitHub Actions secrets:
+#   DATABASE_URL   - prod Postgres connection string
+# (Reddit and HN are unauthenticated; no API keys needed.)
+
+on:
+  schedule:
+    - cron: '0 3 15 * *'
+  workflow_dispatch:
+
+concurrency:
+  group: refresh-sentiment
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Refresh sentiment (stalest first)
+        run: npx tsx scripts/refreshSentiment.ts --interval-ms=1500

@@ -22,6 +22,7 @@
     "db:escalate-ratings": "tsx --env-file=.env.local scripts/escalateMissingRatings.ts",
     "db:refresh-layoffs": "tsx --env-file=.env.local scripts/refreshLayoffs.ts",
     "db:refresh-sentiment": "tsx --env-file=.env.local scripts/refreshSentiment.ts",
+    "db:refresh-stocks": "tsx --env-file=.env.local scripts/refreshStockPrices.ts",
     "db:studio": "prisma studio"
   },
   "prisma": {

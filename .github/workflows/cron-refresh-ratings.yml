@@ -1,0 +1,73 @@
+name: Refresh ratings (daily, small batch)
+
+# Runs every day at 21:30 UTC (03:00 IST). Off-peak for user traffic.
+#
+# We CANNOT do a bulk monthly dump because the 9 Gemini keys are shared with
+# user-facing PDF / image offer extraction (gemini-2.5-flash). A 238-call
+# burst would either trip per-minute rate limits or starve a user upload
+# happening at the same time.
+#
+# Instead: two small slices each day that cycle the catalog naturally.
+#   * Bulk slice: 10 stalest catalog rows with flash-lite (1000 RPD per key
+#     pool, separate from flash). Cycles all ~240 companies in ~24 days,
+#     burning <2% of the daily flash-lite quota.
+#   * Escalation slice: 5 stuck rows with pro (50 RPD per key pool, separate
+#     again). Cycles the ~47 stuck pool in ~10 days, then idles until new
+#     companies get added.
+# Total daily Gemini calls: ~15. Time on the runner: ~5 min.
+#
+# Required GitHub Actions secrets:
+#   DATABASE_URL              - prod Postgres connection string
+#   GEMINI_API_KEY            - primary Gemini key
+#   GEMINI_API_KEY_2 .. _10   - rotation keys (optional but recommended)
+
+on:
+  schedule:
+    - cron: '30 21 * * *'
+  workflow_dispatch:
+    inputs:
+      batch_size:
+        description: 'Bulk slice size (default 10)'
+        required: false
+        default: '10'
+      escalate_max:
+        description: 'Escalation slice size (default 5)'
+        required: false
+        default: '5'
+
+concurrency:
+  group: refresh-ratings
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
+      GEMINI_API_KEY_3: ${{ secrets.GEMINI_API_KEY_3 }}
+      GEMINI_API_KEY_4: ${{ secrets.GEMINI_API_KEY_4 }}
+      GEMINI_API_KEY_5: ${{ secrets.GEMINI_API_KEY_5 }}
+      GEMINI_API_KEY_6: ${{ secrets.GEMINI_API_KEY_6 }}
+      GEMINI_API_KEY_7: ${{ secrets.GEMINI_API_KEY_7 }}
+      GEMINI_API_KEY_8: ${{ secrets.GEMINI_API_KEY_8 }}
+      GEMINI_API_KEY_9: ${{ secrets.GEMINI_API_KEY_9 }}
+      GEMINI_API_KEY_10: ${{ secrets.GEMINI_API_KEY_10 }}
+      BATCH_SIZE: ${{ github.event.inputs.batch_size || '10' }}
+      ESCALATE_MAX: ${{ github.event.inputs.escalate_max || '5' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+
+      - name: Bulk slice (flash-lite, ${{ env.BATCH_SIZE }} stalest)
+        run: npx tsx scripts/refreshRatings.ts --batch-size=${{ env.BATCH_SIZE }} --interval-ms=14000
+
+      - name: Escalation slice (pro, ${{ env.ESCALATE_MAX }} oldest stuck)
+        run: npx tsx scripts/escalateMissingRatings.ts --model=gemini-2.5-pro --interval-ms=25000 --max=${{ env.ESCALATE_MAX }}
