@@ -22,8 +22,15 @@ name: Refresh ratings (daily, small batch)
 #   GEMINI_API_KEY_2 .. _10   - rotation keys (optional but recommended)
 
 on:
-  schedule:
-    - cron: '30 21 * * *'
+  # PAUSED May 25, 2026 — re-enable after manual backfill plateaus catalog
+  # ratings coverage (see TODO.md "Finish ratings refresh against prod Postgres").
+  # The cron and manual runs share the same 9-key Gemini pool with ~11 unique
+  # companies / day throughput; letting the cron grab 15/day while we're also
+  # trying to grind through 44 missing rows just wastes the daily quota on
+  # already-rated rows that aren't stale yet.
+  # Restore by uncommenting the schedule block below.
+  # schedule:
+  #   - cron: '30 21 * * *'
   workflow_dispatch:
     inputs:
       batch_size:
