@@ -1,31 +1,25 @@
 import Link from 'next/link';
-import { SignInForm } from '@/components/AuthForms';
+import { GoogleSignInButton } from '@/components/AuthForms';
 
-export default async function SignInPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ callbackUrl?: string }>;
-}) {
-  const sp = await searchParams;
+export default function SignInPage() {
   const googleEnabled = !!process.env.AUTH_GOOGLE_ID && !!process.env.AUTH_GOOGLE_SECRET;
-  const openSignup = process.env.OPEN_SIGNUP === 'true';
   return (
     <div className="mx-auto max-w-md py-12">
       <div className="card space-y-4">
         <h1 className="text-xl font-semibold">Sign in</h1>
-        <SignInForm
-          googleEnabled={googleEnabled}
-          credentialsEnabled={openSignup}
-          callbackUrl={sp.callbackUrl}
-        />
-        {openSignup && (
-          <p className="text-center text-sm text-[rgb(var(--muted-foreground))]">
-            New here?{' '}
-            <Link href="/auth/signup" className="text-[rgb(var(--primary))] underline">
-              Create an account
-            </Link>
+        {googleEnabled ? (
+          <GoogleSignInButton />
+        ) : (
+          <p className="text-sm text-[rgb(var(--danger))]">
+            Google sign-in isn&apos;t configured. Please contact the admin.
           </p>
         )}
+        <p className="text-center text-sm text-[rgb(var(--muted-foreground))]">
+          New here?{' '}
+          <Link href="/auth/signup" className="text-[rgb(var(--primary))] underline">
+            Create an account
+          </Link>
+        </p>
       </div>
     </div>
   );

@@ -42,17 +42,6 @@ export const offerSchema = z.object({
 
 export type OfferFormValues = z.infer<typeof offerSchema>;
 
-export const signInSchema = z.object({
-  email: z.string().email('Enter a valid email'),
-  password: z.string().min(1, 'Password is required'),
-});
-
-export const signUpSchema = z.object({
-  name: z.string().optional(),
-  email: z.string().email('Enter a valid email'),
-  password: z.string().min(8, 'At least 8 characters'),
-});
-
 /**
  * Validate a FormData against a zod schema; returns either parsed data or a
  * record of fieldName → first error message.

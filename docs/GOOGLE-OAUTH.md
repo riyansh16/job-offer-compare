@@ -1,10 +1,10 @@
 # Google OAuth Integration Plan
 
-> Step-by-step plan for making Google OAuth the **only** sign-in method in
-> production. Local dev keeps the email/password path behind an `OPEN_SIGNUP`
-> flag so you can keep iterating without a Google account in the loop.
+> Google OAuth is the **only** sign-in method in every environment (dev, staging,
+> prod). The `OPEN_SIGNUP` email/password escape hatch was removed on May 24, 2026
+> — see the bottom of this file for the "what was deleted" notes.
 
-**Status**: planning. No code changes from this plan have been applied yet.
+**Status**: shipped.
 
 **Owner**: [TODO.md](../TODO.md) → 🔴 Blockers → "Authentication (prod hardening)".
 
@@ -14,8 +14,7 @@
 
 | Environment | Sign-in methods | Sign-up methods |
 |---|---|---|
-| Local dev (`OPEN_SIGNUP=true`) | Google OAuth **+** email/password | Email/password form available |
-| Production (`OPEN_SIGNUP=false`, the default) | Google OAuth **only** | None — Credentials provider disabled, signup form hidden |
+| All envs (dev / staging / prod) | Google OAuth **only** | Google OAuth **only** |
 
 No email allowlist. Anyone with a Google account can sign in. Abuse is mitigated by per-user rate limits (separate TODO item) and Sentry alerts.
 
