@@ -66,9 +66,12 @@ function collectGeminiKeys(): string[] {
 
 /** Tag value to distinguish daily-quota exhaustion from other failures. */
 const QUOTA_EXHAUSTED = Symbol('gemini-quota-exhausted');
+/** Tag value for Gemini infra 5xx (UNAVAILABLE / INTERNAL). Transient, never
+ *  the company's fault — the caller should NOT stamp the row as attempted. */
+const SERVICE_UNAVAILABLE = Symbol('gemini-service-unavailable');
 type CallOutcome =
   | { ok: true; response: Awaited<ReturnType<GoogleGenAI['models']['generateContent']>> }
-  | { ok: false; reason: typeof QUOTA_EXHAUSTED | 'failed' };
+  | { ok: false; reason: typeof QUOTA_EXHAUSTED | typeof SERVICE_UNAVAILABLE | 'failed' };
 
 /**
  * Thrown when fetchLlmRatings could not make a single Gemini call because
@@ -82,6 +85,20 @@ export class GeminiQuotaExhaustedError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'GeminiQuotaExhaustedError';
+  }
+}
+
+/**
+ * Thrown when every Gemini key returned a 5xx (UNAVAILABLE / INTERNAL).
+ * These are transient infra failures on Google's side — the model never
+ * actually evaluated the prompt. Treated the same as quota exhaustion by
+ * the batch processor (no stamp, no failureCount bump) so a 503 spike
+ * doesn't permanently mark hundreds of large-employer rows as 'given up'.
+ */
+export class GeminiServiceUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'GeminiServiceUnavailableError';
   }
 }
 
@@ -114,6 +131,17 @@ async function callGemini(
       return { ok: true, response };
     } catch (err) {
       const status = (err as { status?: number })?.status;
+      // 5xx = infra issue on Google's side. Model never ran; never the
+      // company's fault. Don't burn this key for the rest of the process;
+      // surface as 'service unavailable' so the outer loop can try the
+      // next key (different region / instance often clears it) or, if all
+      // keys fail, throw a distinct error from fetchLlmRatings.
+      if (status != null && status >= 500 && status < 600) {
+        console.warn(
+          `[llmRatings] Gemini ${status} for "${companyName}" on key …${apiKey.slice(-6)} (transient)`,
+        );
+        return { ok: false, reason: SERVICE_UNAVAILABLE };
+      }
       if (status !== 429) {
         console.warn(`[llmRatings] Gemini call failed for "${companyName}":`, err);
         return { ok: false, reason: 'failed' };
@@ -228,32 +256,54 @@ export async function fetchLlmRatings(
 Search the web and return STRICT JSON matching the schema in the system prompt.
 Make sure indeedUrl is the exact Indeed company-overview page (e.g. /cmp/CompanyName).`;
 
-  // Try keys in order. On daily-quota exhaustion, mark the key dead for this
-  // process and rotate to the next. On any other failure, give up — those are
-  // not key-specific and burning more keys won't help.
+  // Try keys in order. Track WHY we couldn't get a successful response from
+  // any key so the abort path can throw the right error class. The key
+  // invariant: if `response` is still null after the loop, no key produced a
+  // real model evaluation, so the caller MUST NOT stamp the company as
+  // attempted — same as the all-quota-exhausted case.
   let response: Awaited<ReturnType<GoogleGenAI['models']['generateContent']>> | null = null;
-  let allExhausted = true;
+  let sawNonRetryableFailure = false;
+  let sawAnyServiceUnavailable = false;
   for (const key of keys) {
     const outcome = await callGemini(key, prompt, companyName);
     if (outcome.ok) {
       response = outcome.response;
-      allExhausted = false;
       break;
     }
     if (outcome.reason === QUOTA_EXHAUSTED) {
       EXHAUSTED_KEYS.add(key);
       continue;
     }
-    // Real failure (non-quota): we DID make a call, just failed. Caller can
-    // legitimately mark the company as attempted.
-    return null;
+    if (outcome.reason === SERVICE_UNAVAILABLE) {
+      // Don't add to EXHAUSTED_KEYS — the key is fine, the service blipped.
+      sawAnyServiceUnavailable = true;
+      continue;
+    }
+    // Genuine non-retryable failure (parse-level, auth, etc.). We DID make a
+    // call, just couldn't use the response. Caller can legitimately mark the
+    // company as attempted so we don't loop on it forever.
+    sawNonRetryableFailure = true;
+    break;
   }
   if (!response) {
-    if (allExhausted) {
+    // We never got a usable response. Order matters: if even ONE key 5xx'd,
+    // we throw ServiceUnavailable so the batch processor aborts WITHOUT
+    // stamping the row — a 503 storm typically affects every subsequent call,
+    // and we don't want a wave of false failureCount=1 stamps like the May 18
+    // bulk run produced.
+    if (sawAnyServiceUnavailable) {
+      throw new GeminiServiceUnavailableError(
+        `Gemini infra 5xx while fetching "${companyName}" (mix of quota+5xx with no successful keys)`,
+      );
+    }
+    if (!sawNonRetryableFailure) {
+      // No 5xx, no genuine failure → every key was quota-exhausted.
       throw new GeminiQuotaExhaustedError(
         `All Gemini API keys exhausted while fetching "${companyName}"`,
       );
     }
+    // Genuine model-level failure: bad auth, parse error after a real call,
+    // etc. Return null so the company is stamped as attempted.
     return null;
   }
 

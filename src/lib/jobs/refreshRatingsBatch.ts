@@ -9,7 +9,11 @@
  *  2. A one-time bootstrap run (huge N, e.g. 1000) — first-time fill.
  */
 import { prisma } from '../db';
-import { fetchLlmRatings, GeminiQuotaExhaustedError } from '../providers/llmRatings';
+import {
+  fetchLlmRatings,
+  GeminiQuotaExhaustedError,
+  GeminiServiceUnavailableError,
+} from '../providers/llmRatings';
 
 export interface BatchOptions {
   /** Max companies to refresh in this run. */
@@ -168,6 +172,14 @@ export async function refreshRatingsBatch(opts: BatchOptions): Promise<BatchResu
         // Global quota exhaustion — we never actually called Gemini for this
         // company. Leave it untouched so it's still in the "never attempted"
         // bucket. Signal the outer loop to stop.
+        allKeysExhausted = true;
+        return 'skip-quota';
+      }
+      if (err instanceof GeminiServiceUnavailableError) {
+        // Gemini infra blip (5xx UNAVAILABLE / INTERNAL) on every key. Model
+        // never evaluated the prompt; this is not the company's fault, so
+        // don't stamp anything. Abort the batch — if every key is 5xx'ing,
+        // the next 40 calls will be too. Try again later (next scheduled run).
         allKeysExhausted = true;
         return 'skip-quota';
       }
