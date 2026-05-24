@@ -579,6 +579,142 @@ async function main() {
       hqLocation: 'New York, NY', industry: 'Management Consulting', size: '6000+' },
     { name: 'Kearney', slug: 'kearney', tickerSymbol: null, isPublic: false,
       hqLocation: 'Chicago, IL', industry: 'Management Consulting', size: '5300+' },
+
+    // --- E-commerce / Retail (public) ---
+    { name: 'Wayfair', slug: 'wayfair', tickerSymbol: 'W', isPublic: true,
+      hqLocation: 'Boston, MA', industry: 'E-commerce / Home', size: '12000+' },
+    { name: 'Etsy', slug: 'etsy', tickerSymbol: 'ETSY', isPublic: true,
+      hqLocation: 'Brooklyn, NY', industry: 'E-commerce / Marketplace', size: '2400+' },
+    { name: 'Chewy', slug: 'chewy', tickerSymbol: 'CHWY', isPublic: true,
+      hqLocation: 'Plantation, FL', industry: 'Pet E-commerce', size: '21000+' },
+
+    // --- Health tech ---
+    { name: 'Athenahealth', slug: 'athenahealth', tickerSymbol: null, isPublic: false,
+      hqLocation: 'Boston, MA', industry: 'Healthcare IT / EHR', size: '7000+' },
+    { name: 'Epic Systems', slug: 'epic-systems', tickerSymbol: null, isPublic: false,
+      hqLocation: 'Verona, WI', industry: 'Healthcare IT / EHR', size: '13000+' },
+    { name: 'Veeva Systems', slug: 'veeva', tickerSymbol: 'VEEV', isPublic: true,
+      hqLocation: 'Pleasanton, CA', industry: 'Life Sciences SaaS', size: '7400+' },
+    { name: 'GE HealthCare', slug: 'ge-healthcare', tickerSymbol: 'GEHC', isPublic: true,
+      hqLocation: 'Chicago, IL', industry: 'Medical Devices', size: '51000+' },
+    { name: 'Teladoc Health', slug: 'teladoc', tickerSymbol: 'TDOC', isPublic: true,
+      hqLocation: 'Purchase, NY', industry: 'Telehealth', size: '5500+' },
+
+    // --- AdTech / marketing (public) ---
+    { name: 'Zeta Global', slug: 'zeta-global', tickerSymbol: 'ZETA', isPublic: true,
+      hqLocation: 'New York, NY', industry: 'Marketing / AdTech', size: '2200+' },
+    { name: 'The Trade Desk', slug: 'the-trade-desk', tickerSymbol: 'TTD', isPublic: true,
+      hqLocation: 'Ventura, CA', industry: 'Programmatic AdTech', size: '3400+' },
+    { name: 'AppLovin', slug: 'applovin', tickerSymbol: 'APP', isPublic: true,
+      hqLocation: 'Palo Alto, CA', industry: 'Mobile AdTech', size: '1900+' },
+    { name: 'Criteo', slug: 'criteo', tickerSymbol: 'CRTO', isPublic: true,
+      hqLocation: 'Paris, FR', industry: 'Retargeting / AdTech', size: '3500+' },
+
+    // --- More banking / fintech (public) ---
+    { name: 'Capital One', slug: 'capital-one', tickerSymbol: 'COF', isPublic: true,
+      hqLocation: 'McLean, VA', industry: 'Banking / FinTech', size: '55000+' },
+    { name: 'Charles Schwab', slug: 'charles-schwab', tickerSymbol: 'SCHW', isPublic: true,
+      hqLocation: 'Westlake, TX', industry: 'Brokerage', size: '35000+' },
+    { name: 'Discover Financial', slug: 'discover', tickerSymbol: 'DFS', isPublic: true,
+      hqLocation: 'Riverwoods, IL', industry: 'Payments / Banking', size: '21000+' },
+
+    // --- Networking / data center / storage ---
+    { name: 'Akamai', slug: 'akamai', tickerSymbol: 'AKAM', isPublic: true,
+      hqLocation: 'Cambridge, MA', industry: 'CDN / Edge', size: '10500+' },
+    { name: 'Fastly', slug: 'fastly', tickerSymbol: 'FSLY', isPublic: true,
+      hqLocation: 'San Francisco, CA', industry: 'CDN / Edge', size: '1200+' },
+    { name: 'Equinix', slug: 'equinix', tickerSymbol: 'EQIX', isPublic: true,
+      hqLocation: 'Redwood City, CA', industry: 'Data Centers', size: '13000+' },
+    { name: 'Arista Networks', slug: 'arista', tickerSymbol: 'ANET', isPublic: true,
+      hqLocation: 'Santa Clara, CA', industry: 'Networking', size: '4000+' },
+    { name: 'Nutanix', slug: 'nutanix', tickerSymbol: 'NTNX', isPublic: true,
+      hqLocation: 'San Jose, CA', industry: 'Hybrid Cloud Infra', size: '7000+' },
+    { name: 'Pure Storage', slug: 'pure-storage', tickerSymbol: 'PSTG', isPublic: true,
+      hqLocation: 'Santa Clara, CA', industry: 'Flash Storage', size: '5800+' },
+    { name: 'NetApp', slug: 'netapp', tickerSymbol: 'NTAP', isPublic: true,
+      hqLocation: 'San Jose, CA', industry: 'Storage / Cloud Data', size: '12000+' },
+
+    // --- More cybersecurity (public) ---
+    { name: 'Fortinet', slug: 'fortinet', tickerSymbol: 'FTNT', isPublic: true,
+      hqLocation: 'Sunnyvale, CA', industry: 'Network Security', size: '14000+' },
+    { name: 'SentinelOne', slug: 'sentinelone', tickerSymbol: 'S', isPublic: true,
+      hqLocation: 'Mountain View, CA', industry: 'Endpoint Security', size: '2400+' },
+
+    // --- Observability / DevOps (public) ---
+    { name: 'Dynatrace', slug: 'dynatrace', tickerSymbol: 'DT', isPublic: true,
+      hqLocation: 'Waltham, MA', industry: 'Observability', size: '4500+' },
+    { name: 'JFrog', slug: 'jfrog', tickerSymbol: 'FROG', isPublic: true,
+      hqLocation: 'Sunnyvale, CA', industry: 'DevOps / Artifact Mgmt', size: '1700+' },
+
+    // --- More enterprise SaaS (public) ---
+    { name: 'Toast', slug: 'toast', tickerSymbol: 'TOST', isPublic: true,
+      hqLocation: 'Boston, MA', industry: 'Restaurant SaaS', size: '5500+' },
+    { name: 'Bill.com', slug: 'bill-com', tickerSymbol: 'BILL', isPublic: true,
+      hqLocation: 'San Jose, CA', industry: 'SMB FinTech SaaS', size: '3200+' },
+    { name: 'Procore', slug: 'procore', tickerSymbol: 'PCOR', isPublic: true,
+      hqLocation: 'Carpinteria, CA', industry: 'Construction SaaS', size: '4000+' },
+    { name: 'Pegasystems', slug: 'pegasystems', tickerSymbol: 'PEGA', isPublic: true,
+      hqLocation: 'Cambridge, MA', industry: 'BPM / CRM SaaS', size: '5500+' },
+
+    // --- More Indian IT services (public, NSE) ---
+    { name: 'LTIMindtree', slug: 'ltimindtree', tickerSymbol: 'LTIM.NS', isPublic: true,
+      hqLocation: 'Mumbai, IN', industry: 'IT Services', size: '84000+' },
+    { name: 'Mphasis', slug: 'mphasis', tickerSymbol: 'MPHASIS.NS', isPublic: true,
+      hqLocation: 'Bangalore, IN', industry: 'IT Services', size: '31000+' },
+    { name: 'Persistent Systems', slug: 'persistent-systems', tickerSymbol: 'PERSISTENT.NS', isPublic: true,
+      hqLocation: 'Pune, IN', industry: 'IT Services', size: '23000+' },
+    { name: 'Coforge', slug: 'coforge', tickerSymbol: 'COFORGE.NS', isPublic: true,
+      hqLocation: 'Noida, IN', industry: 'IT Services', size: '25000+' },
+
+    // --- Global / European banks (public) ---
+    { name: 'HSBC', slug: 'hsbc', tickerSymbol: 'HSBC', isPublic: true,
+      hqLocation: 'London, UK', industry: 'Universal Bank', size: '220000+' },
+    { name: 'Standard Chartered', slug: 'standard-chartered', tickerSymbol: 'SCBFF', isPublic: true,
+      hqLocation: 'London, UK', industry: 'Universal Bank', size: '85000+' },
+    { name: 'Barclays', slug: 'barclays', tickerSymbol: 'BCS', isPublic: true,
+      hqLocation: 'London, UK', industry: 'Investment Bank', size: '90000+' },
+    { name: 'Deutsche Bank', slug: 'deutsche-bank', tickerSymbol: 'DB', isPublic: true,
+      hqLocation: 'Frankfurt, DE', industry: 'Investment Bank', size: '90000+' },
+    { name: 'UBS', slug: 'ubs', tickerSymbol: 'UBS', isPublic: true,
+      hqLocation: 'Zurich, CH', industry: 'Investment Bank / WM', size: '110000+' },
+    { name: 'BNP Paribas', slug: 'bnp-paribas', tickerSymbol: 'BNPQY', isPublic: true,
+      hqLocation: 'Paris, FR', industry: 'Universal Bank', size: '180000+' },
+    { name: 'Nomura', slug: 'nomura', tickerSymbol: 'NMR', isPublic: true,
+      hqLocation: 'Tokyo, JP', industry: 'Investment Bank', size: '27000+' },
+
+    // --- US money-center banks (public) ---
+    { name: 'Citi', slug: 'citi', tickerSymbol: 'C', isPublic: true,
+      hqLocation: 'New York, NY', industry: 'Universal Bank', size: '230000+' },
+    { name: 'Wells Fargo', slug: 'wells-fargo', tickerSymbol: 'WFC', isPublic: true,
+      hqLocation: 'San Francisco, CA', industry: 'Universal Bank', size: '220000+' },
+    { name: 'Bank of America', slug: 'bank-of-america', tickerSymbol: 'BAC', isPublic: true,
+      hqLocation: 'Charlotte, NC', industry: 'Universal Bank', size: '213000+' },
+
+    // --- Indian banks (public, NSE) ---
+    { name: 'HDFC Bank', slug: 'hdfc-bank', tickerSymbol: 'HDB', isPublic: true,
+      hqLocation: 'Mumbai, IN', industry: 'Universal Bank', size: '195000+' },
+    { name: 'ICICI Bank', slug: 'icici-bank', tickerSymbol: 'IBN', isPublic: true,
+      hqLocation: 'Mumbai, IN', industry: 'Universal Bank', size: '130000+' },
+    { name: 'State Bank of India', slug: 'sbi', tickerSymbol: 'SBIN.NS', isPublic: true,
+      hqLocation: 'Mumbai, IN', industry: 'Universal Bank', size: '235000+' },
+    { name: 'Axis Bank', slug: 'axis-bank', tickerSymbol: 'AXISBANK.NS', isPublic: true,
+      hqLocation: 'Mumbai, IN', industry: 'Universal Bank', size: '105000+' },
+    { name: 'Kotak Mahindra Bank', slug: 'kotak-mahindra-bank', tickerSymbol: 'KOTAKBANK.NS', isPublic: true,
+      hqLocation: 'Mumbai, IN', industry: 'Universal Bank', size: '105000+' },
+
+    // --- Financial data / media / index providers ---
+    { name: 'Bloomberg LP', slug: 'bloomberg', tickerSymbol: null, isPublic: false,
+      hqLocation: 'New York, NY', industry: 'Financial Data / Media', size: '21000+' },
+    { name: 'LSEG (Refinitiv)', slug: 'lseg', tickerSymbol: 'LSEG.L', isPublic: true,
+      hqLocation: 'London, UK', industry: 'Financial Data / Exchange', size: '25000+' },
+    { name: 'S&P Global', slug: 'sp-global', tickerSymbol: 'SPGI', isPublic: true,
+      hqLocation: 'New York, NY', industry: 'Ratings / Financial Data', size: '40000+' },
+    { name: 'Moody\u2019s', slug: 'moodys', tickerSymbol: 'MCO', isPublic: true,
+      hqLocation: 'New York, NY', industry: 'Ratings / Financial Data', size: '15000+' },
+    { name: 'MSCI', slug: 'msci', tickerSymbol: 'MSCI', isPublic: true,
+      hqLocation: 'New York, NY', industry: 'Index / Analytics', size: '6000+' },
+    { name: 'FactSet', slug: 'factset', tickerSymbol: 'FDS', isPublic: true,
+      hqLocation: 'Norwalk, CT', industry: 'Financial Data', size: '12000+' },
   ];
 
   for (const c of COMPANY_CATALOG) {
