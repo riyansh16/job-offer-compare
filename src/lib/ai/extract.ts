@@ -31,7 +31,6 @@ export interface ExtractedOffer {
    */
   equityCurrency?: string;
   benefitsValueAnnual?: number;
-  ptoDays?: number;
   /** ISO 4217 currency code as detected in the document, e.g. 'INR', 'USD'. */
   currency?: string;
   /** Free-form note about anything ambiguous (cliff, refresh, etc.). */
@@ -56,7 +55,6 @@ Schema (every field optional, omit what you cannot find with high confidence):
   "equityVestingYears": number,                 // vesting horizon in years; default 4 if document says "vesting per company policy" without a number
   "equityCurrency":     string,                 // ISO 4217 — set ONLY when equity is in a different currency than base (e.g. India offer with USD RSUs)
   "benefitsValueAnnual": number,                // optional, only if document states a $/₹ value
-  "ptoDays":            number,                 // total annual PTO/leave days
   "currency":           string,                 // ISO 4217 of base salary
   "note":               string                  // 1-line caveat (cliff, refresh, RSU vs option, components rolled together, etc.)
 }
@@ -65,18 +63,45 @@ Rules:
 - Output ONE JSON object and nothing else. No markdown.
 - Only include a field if the document clearly states it. Never guess.
 
-EQUITY / STOCK — look carefully, this is commonly missed:
+BASE SALARY — read carefully, Indian offers trip up extractors:
+- "baseSalary" means the headline ANNUAL FIXED PAY the offer promises (what
+  the recruiter / job site would quote). Synonyms used in offer letters:
+  "Annual salary", "Annual base salary", "Total annual remuneration",
+  "Annual compensation", "Annual CTC", "Gross Annual Salary", "Fixed Annual
+  Compensation", "Cost To Company (CTC)". Use that single headline number.
+- In Indian offers, the CTC table usually has a line item literally called
+  "Basic Salary" or "Basic Pay" that is roughly 40-50% of the CTC. This is
+  a STATUTORY sub-component used to compute PF/gratuity. DO NOT use it as
+  baseSalary. Use the CTC total / "Annual salary" / "Total remuneration"
+  figure instead — even if the breakdown shows "Basic Salary 18,50,000",
+  baseSalary should be the 37,00,000 CTC total.
+- Exclude one-time sign-on/joining/relocation bonuses and equity from base.
+  Variable/performance pay listed inside the CTC (e.g. "Variable Allowance",
+  "Bonus-Basic", "Performance Pay") IS part of the CTC headline and stays
+  inside baseSalary — do NOT subtract it.
+- US/EU offers: use the explicit "Base Salary" or "Annual Base Salary"
+  number from the letter or appendix; do not add bonus/equity.
+
+EQUITY / STOCK — equityTotal must be the PER-YEAR vesting value:
 - Sections titled "On-Hire Stock Award", "Stock Award", "RSU Grant", "Equity",
   "Restricted Stock Units", "Long Term Incentive", "LTI", "ESPP grant",
   "shares of [Company] common stock" all describe equity.
 - If the letter says "X (USD/INR) divided by closing stock price" or "shares
-  worth X", that X IS the total grant value. Use it.
-- If vesting years aren't stated, assume 4 (industry standard for FAANG/MSFT)
-  and put "assumed 4yr vesting" in "note".
-- equityTotal = total_grant / equityVestingYears. ALWAYS annualize.
+  worth X", that X is the stated grant amount.
+- Two cases for converting the stated grant to equityTotal (per-year):
+  (a) Document EXPLICITLY states a vesting period ("vests over 4 years",
+      "16 quarterly installments", "3-year cliff vest"): set equityVestingYears
+      to that number and equityTotal = stated_grant / equityVestingYears.
+  (b) Document does NOT state a vesting period (only says "vests", "starts
+      vesting one year from", or is silent on duration): treat the stated
+      grant as already PER-YEAR (annual refresh / annualized value).
+      Set equityTotal = stated_grant and OMIT equityVestingYears. Mention
+      "annual grant (vesting period not stated)" in note.
+- A "one year cliff" or "starts vesting after one year" is NOT a vesting
+  period — it's just a cliff before the first vest. Do not infer 1yr vest.
 - If grant currency differs from base, set "equityCurrency" (don't convert).
-- If letter mentions stock but value is missing, still set equityVestingYears
-  if known, and put the description in "note".
+- If letter mentions stock but value is missing, omit equityTotal and
+  describe in "note".
 
 ONE-TIME BONUSES — combine into signOnBonus:
 - "Joining bonus", "Sign-on bonus", "Relocation bonus", "Relocation allowance",
@@ -373,8 +398,6 @@ function sanitize(raw: unknown): ExtractedOffer {
   if (equityCurrency) out.equityCurrency = equityCurrency.toUpperCase().slice(0, 8);
   const benefitsValueAnnual = num(r.benefitsValueAnnual);
   if (benefitsValueAnnual !== undefined) out.benefitsValueAnnual = benefitsValueAnnual;
-  const ptoDays = num(r.ptoDays, 365);
-  if (ptoDays !== undefined) out.ptoDays = Math.round(ptoDays);
 
   const currency = str(r.currency);
   if (currency) out.currency = currency.toUpperCase().slice(0, 8);
