@@ -9,11 +9,14 @@ name: Refresh ratings (daily, small batch)
 #
 # Instead: two small slices each day that cycle the catalog naturally.
 #   * Bulk slice: 10 stalest catalog rows with flash-lite (1000 RPD per key
-#     pool, separate from flash). Cycles all ~240 companies in ~24 days,
+#     pool, separate from flash). Cycles all ~290 companies in ~29 days,
 #     burning <2% of the daily flash-lite quota.
-#   * Escalation slice: 5 stuck rows with pro (50 RPD per key pool, separate
-#     again). Cycles the ~47 stuck pool in ~10 days, then idles until new
-#     companies get added.
+#   * Escalation slice: 5 stuck rows with flash (250 RPD per key pool,
+#     separate from flash-lite). Cycles the stuck pool in ~7 days, then
+#     idles until new companies get added. (Was gemini-2.5-pro until
+#     May 30, 2026 — pro is now paid-tier only on the Gemini API; free-
+#     tier projects get 0 RPD per `GenerateRequestsPerDayPerProjectPerModel-FreeTier`.
+#     Flash gives ~50% hit-rate vs pro's ~85% but stays free.)
 # Total daily Gemini calls: ~15. Time on the runner: ~5 min.
 #
 # Required GitHub Actions secrets:
@@ -22,15 +25,8 @@ name: Refresh ratings (daily, small batch)
 #   GEMINI_API_KEY_2 .. _10   - rotation keys (optional but recommended)
 
 on:
-  # PAUSED May 25, 2026 — re-enable after manual backfill plateaus catalog
-  # ratings coverage (see TODO.md "Finish ratings refresh against prod Postgres").
-  # The cron and manual runs share the same 9-key Gemini pool with ~11 unique
-  # companies / day throughput; letting the cron grab 15/day while we're also
-  # trying to grind through 44 missing rows just wastes the daily quota on
-  # already-rated rows that aren't stale yet.
-  # Restore by uncommenting the schedule block below.
-  # schedule:
-  #   - cron: '30 21 * * *'
+  schedule:
+    - cron: '30 21 * * *'
   workflow_dispatch:
     inputs:
       batch_size:
@@ -76,5 +72,5 @@ jobs:
       - name: Bulk slice (flash-lite, ${{ env.BATCH_SIZE }} stalest)
         run: npx tsx scripts/refreshRatings.ts --batch-size=${{ env.BATCH_SIZE }} --interval-ms=14000
 
-      - name: Escalation slice (pro, ${{ env.ESCALATE_MAX }} oldest stuck)
-        run: npx tsx scripts/escalateMissingRatings.ts --model=gemini-2.5-pro --interval-ms=25000 --max=${{ env.ESCALATE_MAX }}
+      - name: Escalation slice (flash, ${{ env.ESCALATE_MAX }} oldest stuck)
+        run: npx tsx scripts/escalateMissingRatings.ts --model=gemini-2.5-flash --interval-ms=14000 --max=${{ env.ESCALATE_MAX }}

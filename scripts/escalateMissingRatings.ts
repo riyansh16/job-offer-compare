@@ -2,37 +2,46 @@
  * Escalation pass for companies stuck in the "tried, no data" bucket.
  *
  * Background: `gemini-2.5-flash-lite` (the default for the bulk refresh) has
- * roughly ~22% URL-extraction success on Indeed company pages. The pro model
- * (`gemini-2.5-pro`) gets ~85% — but it has a much smaller daily quota
- * (~50 RPD per key vs ~20 for lite), so it's wasteful on the bulk pass.
+ * roughly ~22% URL-extraction success on Indeed company pages. The flash
+ * model (`gemini-2.5-flash`) gets ~50% on the same set — slower per call but
+ * a different free-tier quota pool, so it doesn't compete with the bulk
+ * slice for budget.
+ *
+ * NOTE: This script used to default to `gemini-2.5-pro` (~85% hit-rate).
+ * As of May 2026 Google moved 2.5-pro to paid-tier only — free-tier projects
+ * get 0 RPD (`GenerateRequestsPerDayPerProjectPerModel-FreeTier`, limit: 0).
+ * Pro is still selectable via `--model=gemini-2.5-pro` if you've enabled
+ * billing on at least one Gemini project. Default fell back to flash so the
+ * daily cron does useful work on free tier.
  *
  * This script targets ONLY the rows that are stuck:
  *   indeedRating IS NULL AND ratingsLastFetchAttemptAt IS NOT NULL
  *
- * It forces `GEMINI_RATINGS_MODEL=gemini-2.5-pro` before importing the
+ * It forces `GEMINI_RATINGS_MODEL=gemini-2.5-flash` before importing the
  * provider (the model id is captured at module load time), then runs the
- * same batch processor with conservative pro-model throttling.
+ * same batch processor.
  *
  * Run:
  *   npx tsx --env-file=.env.local scripts/escalateMissingRatings.ts
  *   npx tsx --env-file=.env.local scripts/escalateMissingRatings.ts --dry-run
+ *   npx tsx --env-file=.env.local scripts/escalateMissingRatings.ts --model=gemini-2.5-pro  # only if billing enabled
  *
- * Pro 5 RPM free-tier cap means ~25s between calls (5 calls/min, ~4.8 RPM).
- * With 4 keys * ~50 RPD ~= 200 RPD headroom. 56 stuck rows fit comfortably
- * in one run.
+ * Flash 10 RPM free-tier cap means ~6s between calls (10 calls/min); we use
+ * 14s to leave headroom across 9 keys. With 9 keys * ~250 RPD = ~2250 RPD
+ * headroom, the script can chew through every stuck row in one run if needed.
  */
 
 // IMPORTANT: must set the model env var BEFORE importing llmRatings.
 // The MODEL_ID const in src/lib/providers/llmRatings.ts is evaluated at
 // module-load time, so a later assignment would be ignored.
 //
-// Allow CLI override via --model=<id>. Defaults to gemini-2.5-pro because
-// it has the best URL-extraction accuracy. Common alternates:
-//   --model=gemini-2.5-flash       (10 RPM, 250 RPD per key — good middle ground)
+// Allow CLI override via --model=<id>. Defaults to gemini-2.5-flash because
+// pro is paid-only now (see header comment). Common alternates:
 //   --model=gemini-2.5-flash-lite  (15 RPM, 1000 RPD — same as bulk pass)
+//   --model=gemini-2.5-pro         (only if billing enabled; ~85% hit rate)
 const modelArg = process.argv.find((a) => a.startsWith('--model='));
 const overrideModel = modelArg ? modelArg.split('=')[1] : null;
-process.env.GEMINI_RATINGS_MODEL = overrideModel ?? process.env.GEMINI_RATINGS_MODEL ?? 'gemini-2.5-pro';
+process.env.GEMINI_RATINGS_MODEL = overrideModel ?? process.env.GEMINI_RATINGS_MODEL ?? 'gemini-2.5-flash';
 
 import 'dotenv/config';
 import { prisma } from '../src/lib/db';
@@ -42,8 +51,8 @@ async function main() {
   const dryRun = process.argv.includes('--dry-run');
   const intervalArg = process.argv.find((a) => a.startsWith('--interval-ms='));
   // Default throttle depends on model: pro is 5 RPM (~12s minimum) so we use
-  // 25s to leave headroom across 4 keys without thrash; flash is 10 RPM and
-  // copes fine at 14s. Override with --interval-ms=N.
+  // 25s to leave headroom across keys without thrash; flash and flash-lite are
+  // 10-15 RPM and cope fine at 14s. Override with --interval-ms=N.
   const isPro = process.env.GEMINI_RATINGS_MODEL?.includes('pro') ?? false;
   const defaultInterval = isPro ? 25_000 : 14_000;
   const intervalMs = intervalArg

@@ -36,9 +36,10 @@ export interface LlmRatingResult {
 // Default to flash-lite (fastest, smallest); override with GEMINI_RATINGS_MODEL
 // env var when its daily quota is exhausted (each model has a separate 20 RPD
 // bucket on the free tier). Tried-and-tested options:
-//   - gemini-2.5-flash-lite (default, fast)
-//   - gemini-2.5-flash      (smarter, slower)
-//   - gemini-2.5-pro        (smartest, ~50 RPD on free tier)
+//   - gemini-2.5-flash-lite (default, fast, 1000 RPD/key free tier)
+//   - gemini-2.5-flash      (smarter, slower, 250 RPD/key free tier)
+//   - gemini-2.5-pro        (smartest, ~85% hit rate — PAID TIER ONLY as of
+//                            May 2026; free-tier projects get 0 RPD)
 //   - gemini-2.0-flash      (older, separate quota)
 const MODEL_ID = process.env.GEMINI_RATINGS_MODEL ?? 'gemini-2.5-flash-lite';
 
