@@ -9,7 +9,7 @@ import { siteUrl } from '@/lib/site';
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: 'OfferLens — Compare Job Offers (Base, Equity, Reviews)',
+    default: 'OfferLens — Compare Job Offers',
     template: '%s — OfferLens',
   },
   description:
