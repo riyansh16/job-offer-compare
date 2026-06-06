@@ -26,8 +26,7 @@ export async function TopNav() {
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-4">
         <Link href="/" className="flex items-center gap-2 font-semibold" aria-label="OfferLens home">
           <Logo className="h-6 w-6 text-[rgb(var(--primary))]" />
-          <span className="hidden sm:inline">OfferLens</span>
-          <span className="sm:hidden">OL</span>
+          <span>OfferLens</span>
         </Link>
         <div className="flex items-center gap-2 text-sm">
           {user ? (
