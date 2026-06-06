@@ -48,6 +48,9 @@ export async function TopNav() {
             </>
           ) : (
             <>
+              <Link href="/companies" className="btn-ghost hidden sm:inline-flex">
+                Companies
+              </Link>
               <Link href="/auth/signin" className="btn-ghost">
                 Sign in
               </Link>

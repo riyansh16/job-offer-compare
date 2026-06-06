@@ -27,7 +27,8 @@ export default async function Home() {
           ) : (
             <>
               <Link href="/auth/signup" className="btn-primary">Get started</Link>
-              <Link href="/auth/signin" className="btn-outline">Sign in</Link>
+              <Link href="/companies" className="btn-outline">Browse companies</Link>
+              <Link href="/auth/signin" className="btn-ghost">Sign in</Link>
             </>
           )}
         </div>
