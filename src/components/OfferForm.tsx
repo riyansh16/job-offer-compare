@@ -209,7 +209,7 @@ export function OfferForm({
           <div>
             <p className="text-sm font-semibold">Upload offer letter (optional)</p>
             <p className="text-[11px] leading-tight text-[rgb(var(--muted-foreground))]">
-              PDF or screenshot — we'll extract the fields with AI. You can edit anything before saving.
+              PDF or screenshot — we&apos;ll extract the fields with AI. You can edit anything before saving.
             </p>
             {parseHint && (
               <p className="mt-1 text-[11px] leading-tight text-[rgb(var(--warning,234_179_8))]">
