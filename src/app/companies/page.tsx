@@ -1,10 +1,9 @@
 import Link from 'next/link';
-import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { redirect } from 'next/navigation';
 import { Building2 } from 'lucide-react';
 import { CompaniesFilters, type SortKey } from '@/components/CompaniesFilters';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { AdSlot } from '@/components/ads/AdSlot';
 
 type SearchParams = { [key: string]: string | string[] | undefined };
 
@@ -20,9 +19,6 @@ export default async function CompaniesIndexPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const session = await auth();
-  if (!session?.user) redirect('/auth/signin');
-
   const sp = await searchParams;
   const q = pickString(sp.q).trim();
   const industry = pickString(sp.industry);
@@ -117,6 +113,8 @@ export default async function CompaniesIndexPage({
           ))}
         </div>
       )}
+
+      <AdSlot placement="companies-list" />
     </div>
   );
 }

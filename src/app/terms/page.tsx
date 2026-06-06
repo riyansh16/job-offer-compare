@@ -119,6 +119,23 @@ export default function TermsPage() {
         </p>
       </Section>
 
+      <Section title="7a. Advertising">
+        <p>
+          Some public pages (the company directory and individual company
+          pages) may display advertising from third-party networks such as
+          Google AdSense, Media.net, or Ezoic. We do not control which specific
+          ads are shown to you. We make no endorsement of any product or
+          service advertised. Clicking an ad takes you to a third-party site
+          governed by its own terms and privacy policy.
+        </p>
+        <p>
+          Ads are never shown on the offer entry, comparison results,
+          dashboard, or authentication pages. See our{' '}
+          <Link href="/privacy" className="link">Privacy Policy</Link> for the
+          full list of advertising partners and how to opt out.
+        </p>
+      </Section>
+
       <Section title="8. Service availability">
         <p>
           The service is provided &ldquo;as is&rdquo; and &ldquo;as

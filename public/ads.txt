@@ -1,0 +1,18 @@
+# ads.txt — Authorized Digital Sellers
+#
+# Format: <ad system domain>, <publisher account ID>, <relationship>, <certification authority ID>
+# DIRECT  = you have a direct contract with the seller
+# RESELLER = they may resell your inventory
+#
+# Fill in real IDs after each network approves you. Until then,
+# advertisers will see "no authorized sellers" and skip bidding (safe default).
+# Lines starting with "#" are comments and are ignored.
+
+# --- Google AdSense (fill in after AdSense approval) ---
+# google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0
+
+# --- Media.net (fill in after Media.net approval) ---
+# media.net, XXXXXXXX, DIRECT, XXXXXXXXX
+
+# --- Ezoic (fill in after Ezoic approval; Ezoic also resells AdSense + Media.net) ---
+# ezoic.com, XXXXX, DIRECT

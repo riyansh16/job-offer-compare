@@ -161,10 +161,55 @@ export default function PrivacyPage() {
 
       <Section title="7. Cookies">
         <p>
-          We set exactly one cookie: a secure, httpOnly session cookie issued
-          by Auth.js (NextAuth) when you sign in. It contains your signed
-          session token and lasts 7 days. We do not use analytics cookies or
-          third-party cookies.
+          We set a secure, httpOnly session cookie issued by Auth.js (NextAuth)
+          when you sign in. It contains your signed session token and lasts 7
+          days.
+        </p>
+        <p>
+          On a small number of public, top-of-funnel pages (the company
+          directory at <code>/companies</code> and individual company pages at{' '}
+          <code>/companies/[slug]</code>), we may show advertising provided by
+          Google AdSense, Media.net, or Ezoic. These networks set their own
+          cookies for measurement and personalization. <strong>No advertising
+          cookies are set on pages where you are entering offer data, comparing
+          offers, viewing your dashboard, or authenticating.</strong>
+        </p>
+        <p>
+          A consent banner is shown on first visit so you can accept or
+          reject non-essential cookies. Your choice is stored in your
+          browser&rsquo;s <code>localStorage</code>.
+        </p>
+      </Section>
+
+      <Section title="7a. Advertising">
+        <p>
+          When ads are enabled, the third-party advertising partners listed
+          below may collect information such as your IP address, browser
+          user-agent, referring URL, and an advertising identifier to deliver
+          and measure ads. They may use this data subject to their own
+          privacy policies:
+        </p>
+        <ul className="ml-5 list-disc space-y-1">
+          <li>
+            <a className="link" href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer">
+              Google AdSense
+            </a>
+          </li>
+          <li>
+            <a className="link" href="https://www.media.net/en/privacy-policy" target="_blank" rel="noopener noreferrer">
+              Media.net
+            </a>
+          </li>
+          <li>
+            <a className="link" href="https://www.ezoic.com/privacy-policy/" target="_blank" rel="noopener noreferrer">
+              Ezoic
+            </a>
+          </li>
+        </ul>
+        <p>
+          We do not pass any of your account data (name, email, offers,
+          comparisons) to these partners. They only see what your browser
+          discloses when loading their ad slot.
         </p>
       </Section>
 

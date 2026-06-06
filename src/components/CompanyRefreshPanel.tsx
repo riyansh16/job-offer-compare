@@ -21,6 +21,7 @@ export function CompanyRefreshPanel({
   initialCagr5y,
   initialCagr1y,
   initialUpdatedAt,
+  canRefresh = true,
 }: {
   companyId: string;
   ticker: string | null;
@@ -30,6 +31,7 @@ export function CompanyRefreshPanel({
   initialCagr5y?: number | null;
   initialCagr1y?: number | null;
   initialUpdatedAt?: string | null;
+  canRefresh?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -128,21 +130,23 @@ export function CompanyRefreshPanel({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">Stock history</h3>
-            <button
-              onClick={refreshStock}
-              disabled={busy || !ticker}
-              className="btn-outline text-xs"
-              title={
-                ticker
-                  ? 'Refresh'
-                  : isPublic === false
-                    ? 'Private company — no public stock.'
-                    : 'Set a ticker symbol to enable.'
-              }
-            >
-              {busy && <Spinner size={12} label="Refreshing" />}
-              {busy ? 'Fetching…' : 'Refresh'}
-            </button>
+            {canRefresh && (
+              <button
+                onClick={refreshStock}
+                disabled={busy || !ticker}
+                className="btn-outline text-xs"
+                title={
+                  ticker
+                    ? 'Refresh'
+                    : isPublic === false
+                      ? 'Private company — no public stock.'
+                      : 'Set a ticker symbol to enable.'
+                }
+              >
+                {busy && <Spinner size={12} label="Refreshing" />}
+                {busy ? 'Fetching…' : 'Refresh'}
+              </button>
+            )}
           </div>
           {ticker ? (
             <>

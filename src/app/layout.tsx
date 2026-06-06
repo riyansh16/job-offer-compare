@@ -4,6 +4,8 @@ import { TopNav } from '@/components/TopNav';
 import { Footer } from '@/components/Footer';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { AppToaster } from '@/components/AppToaster';
+import { CookieConsent } from '@/components/CookieConsent';
+import { AdProviderScripts } from '@/components/ads/AdProviderScripts';
 
 export const metadata: Metadata = {
   title: 'Job Offer Compare',
@@ -32,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <AdProviderScripts />
       </head>
       <body className="flex min-h-screen flex-col antialiased">
         <ThemeProvider>
@@ -44,6 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </main>
           <Footer />
           <AppToaster />
+          <CookieConsent />
         </ThemeProvider>
       </body>
     </html>

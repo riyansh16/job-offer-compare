@@ -1,13 +1,13 @@
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { CompanyRefreshPanel } from '@/components/CompanyRefreshPanel';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
+import { AdSlot } from '@/components/ads/AdSlot';
 
 export default async function CompanyDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const session = await auth();
-  if (!session?.user) redirect('/auth/signin');
   const company = await prisma.company.findUnique({
     where: { slug },
     include: { sentiments: true },
@@ -115,7 +115,10 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
         initialCagr5y={company.stockCagr5yPct}
         initialCagr1y={company.stockCagr1yPct}
         initialUpdatedAt={company.stockUpdatedAt?.toISOString() ?? null}
+        canRefresh={!!session?.user}
       />
+
+      <AdSlot placement="company-detail" />
     </div>
   );
 }
