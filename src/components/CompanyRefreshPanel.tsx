@@ -16,6 +16,7 @@ export function CompanyRefreshPanel({
   companyId,
   ticker,
   isPublic,
+  canRefresh = false,
   sentiments,
   initialCurrentPrice,
   initialCagr5y,
@@ -25,6 +26,7 @@ export function CompanyRefreshPanel({
   companyId: string;
   ticker: string | null;
   isPublic?: boolean;
+  canRefresh?: boolean;
   sentiments: Sentiment[];
   initialCurrentPrice?: number | null;
   initialCagr5y?: number | null;
@@ -128,21 +130,23 @@ export function CompanyRefreshPanel({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">Stock history</h3>
-            <button
-              onClick={refreshStock}
-              disabled={busy || !ticker}
-              className="btn-outline text-xs"
-              title={
-                ticker
-                  ? 'Refresh'
-                  : isPublic === false
-                    ? 'Private company — no public stock.'
-                    : 'Set a ticker symbol to enable.'
-              }
-            >
-              {busy && <Spinner size={12} label="Refreshing" />}
-              {busy ? 'Fetching…' : 'Refresh'}
-            </button>
+            {canRefresh && (
+              <button
+                onClick={refreshStock}
+                disabled={busy || !ticker}
+                className="btn-outline text-xs"
+                title={
+                  ticker
+                    ? 'Refresh'
+                    : isPublic === false
+                      ? 'Private company — no public stock.'
+                      : 'Set a ticker symbol to enable.'
+                }
+              >
+                {busy && <Spinner size={12} label="Refreshing" />}
+                {busy ? 'Fetching…' : 'Refresh'}
+              </button>
+            )}
           </div>
           {ticker ? (
             <>
@@ -175,7 +179,7 @@ export function CompanyRefreshPanel({
               Set a ticker symbol on this company to enable stock CAGR.
             </p>
           )}
-          {ticker && stockInfo.updatedAt == null && (
+          {ticker && stockInfo.updatedAt == null && canRefresh && (
             <p className="text-[11px] text-[rgb(var(--muted-foreground))]">
               No stock data cached yet. Click Refresh.
             </p>

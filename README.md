@@ -1,4 +1,6 @@
-# Job Offer Compare
+# OfferLens
+
+> Compare job offers — base, equity, reviews. Side by side, with grounded AI.
 
 A private, India-focused web app for comparing competing job offers — base, bonus, equity (with real historical stock performance), benefits, work mode, and company reviews — with AI-generated verdicts you can actually trust.
 

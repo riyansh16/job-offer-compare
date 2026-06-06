@@ -2,9 +2,9 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service — Job Offer Compare',
+  title: 'Terms of Service',
   description:
-    'The terms governing your use of Job Offer Compare. Plain English, India-governed.',
+    'The terms governing your use of OfferLens. Plain English, India-governed.',
 };
 
 const LAST_UPDATED = 'May 14, 2026';
@@ -22,14 +22,14 @@ export default function TermsPage() {
       </header>
 
       <p className="text-sm">
-        Please read these terms before using Job Offer Compare. By creating an
+        Please read these terms before using OfferLens. By creating an
         account or using the service, you agree to them. If you do not agree,
         do not use the service.
       </p>
 
       <Section title="1. What this service is">
         <p>
-          Job Offer Compare is a web tool that helps individuals score and
+          OfferLens is a web tool that helps individuals score and
           compare competing job offers using a weighted formula plus public
           third-party data (Indeed ratings, Reddit/HN sentiment, Yahoo
           Finance stock CAGR) and AI-generated commentary.

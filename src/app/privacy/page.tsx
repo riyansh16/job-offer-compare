@@ -2,9 +2,9 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy — Job Offer Compare',
+  title: 'Privacy Policy',
   description:
-    'What data Job Offer Compare collects, how it is used, and your rights under India\u2019s DPDPA.',
+    'What data OfferLens collects, how it is used, and your rights under India\u2019s DPDPA.',
 };
 
 const LAST_UPDATED = 'May 14, 2026';
@@ -23,7 +23,7 @@ export default function PrivacyPage() {
 
       <section className="space-y-2">
         <p className="text-sm">
-          This page explains, in plain English, exactly what Job Offer Compare
+          This page explains, in plain English, exactly what OfferLens
           collects, why, where it lives, and what you can do about it. We try
           to be specific instead of hiding behind boilerplate. If anything here
           is unclear, email{' '}
@@ -33,7 +33,7 @@ export default function PrivacyPage() {
 
       <Section title="1. Who runs this service">
         <p>
-          Job Offer Compare is a personal project operated by Riyansh Pal,
+          OfferLens is a personal project operated by Riyansh Pal,
           based in India. It is not a registered company. Contact:{' '}
           <a className="link" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>{' '}
           or via{' '}

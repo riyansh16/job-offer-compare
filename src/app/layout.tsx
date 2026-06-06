@@ -4,10 +4,30 @@ import { TopNav } from '@/components/TopNav';
 import { Footer } from '@/components/Footer';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { AppToaster } from '@/components/AppToaster';
+import { siteUrl } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Job Offer Compare',
-  description: 'Side-by-side, weighted comparison of your job offers - with AI insights.',
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: 'OfferLens — Compare Job Offers (Base, Equity, Reviews)',
+    template: '%s — OfferLens',
+  },
+  description:
+    'OfferLens scores competing job offers side by side — base, equity (with real stock CAGR), benefits, and live company reviews. AI verdicts cite the data instead of making it up.',
+  applicationName: 'OfferLens',
+  openGraph: {
+    title: 'OfferLens — Compare Job Offers',
+    description:
+      'Side-by-side, weighted comparison of your job offers — base, equity, reviews, with grounded AI insights.',
+    siteName: 'OfferLens',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'OfferLens — Compare Job Offers',
+    description:
+      'Side-by-side, weighted comparison of your job offers — with grounded AI insights.',
+  },
 };
 
 // Inline pre-hydration script: read stored theme (or fall back to OS preference)
@@ -28,10 +48,28 @@ const themeInitScript = `
 `;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: 'OfferLens',
+    alternateName: 'Job Offer Compare',
+    url: siteUrl,
+    description:
+      'Side-by-side, weighted comparison of competing job offers — base, equity, benefits, and live company reviews — with grounded AI insights.',
+    applicationCategory: 'FinanceApplication',
+    operatingSystem: 'Any',
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'INR' },
+    creator: { '@type': 'Person', name: 'Riyansh Pal', url: 'https://www.linkedin.com/in/riyansh16' },
+  };
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
       </head>
       <body className="flex min-h-screen flex-col antialiased">
         <ThemeProvider>

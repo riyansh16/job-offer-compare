@@ -14,7 +14,7 @@ export function Footer() {
     <footer className="mt-16 border-t bg-[rgb(var(--card))]/60">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 py-6 text-xs text-[rgb(var(--muted-foreground))] sm:flex-row">
         <p>
-          © 2026 Job Offer Compare. Created by{' '}
+          © 2026 OfferLens. Created by{' '}
           <a
             href="https://www.linkedin.com/in/riyansh16"
             target="_blank"

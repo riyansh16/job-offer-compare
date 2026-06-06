@@ -1,10 +1,15 @@
 import Link from 'next/link';
-import { auth } from '@/lib/auth';
+import type { Metadata } from 'next';
 import { prisma } from '@/lib/db';
-import { redirect } from 'next/navigation';
 import { Building2 } from 'lucide-react';
 import { CompaniesFilters, type SortKey } from '@/components/CompaniesFilters';
 import { EmptyState } from '@/components/ui/EmptyState';
+
+export const metadata: Metadata = {
+  title: 'Companies',
+  description:
+    'Browse the OfferLens company catalog — Indeed reviews, layoff signals, and stock CAGR for companies you might get an offer from.',
+};
 
 type SearchParams = { [key: string]: string | string[] | undefined };
 
@@ -20,9 +25,6 @@ export default async function CompaniesIndexPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const session = await auth();
-  if (!session?.user) redirect('/auth/signin');
-
   const sp = await searchParams;
   const q = pickString(sp.q).trim();
   const industry = pickString(sp.industry);

@@ -1,13 +1,30 @@
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { CompanyRefreshPanel } from '@/components/CompanyRefreshPanel';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 
+export async function generateMetadata(
+  { params }: { params: Promise<{ slug: string }> },
+): Promise<Metadata> {
+  const { slug } = await params;
+  const company = await prisma.company.findUnique({
+    where: { slug },
+    select: { name: true, industry: true, hqLocation: true },
+  });
+  if (!company) return { title: 'Company not found' };
+  const where = [company.industry, company.hqLocation].filter(Boolean).join(' · ');
+  return {
+    title: `${company.name} — Reviews, Stock & Layoff Signals`,
+    description:
+      `${company.name}${where ? ` (${where})` : ''} — Indeed reviews, work-life balance & culture breakdown, layoff signals, and stock CAGR.`,
+  };
+}
+
 export default async function CompanyDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const session = await auth();
-  if (!session?.user) redirect('/auth/signin');
   const company = await prisma.company.findUnique({
     where: { slug },
     include: { sentiments: true },
@@ -104,6 +121,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
         companyId={company.id}
         ticker={company.tickerSymbol ?? null}
         isPublic={company.isPublic}
+        canRefresh={!!session?.user}
         sentiments={company.sentiments.map((s) => ({
           source: s.source,
           score: s.score,

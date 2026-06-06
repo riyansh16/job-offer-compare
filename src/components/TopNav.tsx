@@ -3,6 +3,7 @@ import { auth, signOut } from '@/lib/auth';
 import { isAdminEmail } from '@/lib/admin';
 import { NavLinks, type NavItem } from './NavLinks';
 import { ThemeToggle } from './ThemeToggle';
+import { Logo } from './Logo';
 
 export async function TopNav() {
   const session = await auth();
@@ -23,10 +24,10 @@ export async function TopNav() {
   return (
     <nav className="sticky top-0 z-30 border-b bg-[rgb(var(--card))]/80 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-4">
-        <Link href="/" className="flex items-center gap-2 font-semibold">
-          <span className="inline-block h-6 w-6 rounded bg-[rgb(var(--primary))]" />
-          <span className="hidden sm:inline">Job Offer Compare</span>
-          <span className="sm:hidden">JOC</span>
+        <Link href="/" className="flex items-center gap-2 font-semibold" aria-label="OfferLens home">
+          <Logo className="h-6 w-6 text-[rgb(var(--primary))]" />
+          <span className="hidden sm:inline">OfferLens</span>
+          <span className="sm:hidden">OL</span>
         </Link>
         <div className="flex items-center gap-2 text-sm">
           {user ? (

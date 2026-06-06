@@ -9,7 +9,7 @@ import type { Metadata } from 'next';
  */
 
 export const metadata: Metadata = {
-  title: 'Page not found — Job Offer Compare',
+  title: 'Page not found',
 };
 
 export default function NotFound() {
