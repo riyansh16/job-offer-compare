@@ -167,8 +167,6 @@ async function main() {
       hqLocation: 'San Francisco, CA', industry: 'AI Dev Tools', size: '50+' },
     { name: 'Perplexity', slug: 'perplexity', tickerSymbol: null, isPublic: false,
       hqLocation: 'San Francisco, CA', industry: 'AI Search', size: '150+' },
-    { name: 'Mistral AI', slug: 'mistral-ai', tickerSymbol: null, isPublic: false,
-      hqLocation: 'Paris, FR', industry: 'AI Research', size: '100+' },
     { name: 'Cohere', slug: 'cohere', tickerSymbol: null, isPublic: false,
       hqLocation: 'Toronto, ON', industry: 'AI / NLP', size: '300+' },
     { name: 'Scale AI', slug: 'scale-ai', tickerSymbol: null, isPublic: false,
@@ -601,7 +599,7 @@ async function main() {
       hqLocation: 'Purchase, NY', industry: 'Telehealth', size: '5500+' },
 
     // --- AdTech / marketing (public) ---
-    { name: 'Zeta Global', slug: 'zeta-global', tickerSymbol: 'ZETA', isPublic: true,
+    { name: 'Zeta', slug: 'zeta', tickerSymbol: 'ZETA', isPublic: true,
       hqLocation: 'New York, NY', industry: 'Marketing / AdTech', size: '2200+' },
     { name: 'The Trade Desk', slug: 'the-trade-desk', tickerSymbol: 'TTD', isPublic: true,
       hqLocation: 'Ventura, CA', industry: 'Programmatic AdTech', size: '3400+' },
