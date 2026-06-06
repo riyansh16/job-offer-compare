@@ -8,8 +8,7 @@ export default function SignUpPage() {
       <div className="card space-y-4">
         <h1 className="text-xl font-semibold">Create your account</h1>
         <p className="text-sm text-[rgb(var(--muted-foreground))]">
-          Sign-up is via Google only. Use your Google account to get started — we&apos;ll
-          create your profile automatically.
+          Use your Google account to get started — we&apos;ll create your profile automatically.
         </p>
         {googleEnabled ? (
           <GoogleSignInButton />
