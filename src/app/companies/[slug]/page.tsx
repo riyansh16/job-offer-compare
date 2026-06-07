@@ -1,18 +1,31 @@
 import { notFound } from 'next/navigation';
+import { cache } from 'react';
 import type { Metadata } from 'next';
-import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { CompanyRefreshPanel } from '@/components/CompanyRefreshPanel';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
+
+// Per-request dedupe: generateMetadata and the page itself both need the
+// same company row. Wrapping in React cache() collapses the two queries
+// into one round-trip per request.
+const getCompanyBySlug = cache((slug: string) =>
+  prisma.company.findUnique({
+    where: { slug },
+    include: { sentiments: true },
+  }),
+);
+
+// Revalidate company pages every 30 minutes. Company data only changes via
+// daily cron refreshes (ratings, layoffs, stock), so 30-min ISR cache means
+// the SWA CDN serves most company-page hits as static HTML with zero DB
+// load, while still picking up fresh cron data within half an hour.
+export const revalidate = 1800;
 
 export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> },
 ): Promise<Metadata> {
   const { slug } = await params;
-  const company = await prisma.company.findUnique({
-    where: { slug },
-    select: { name: true, industry: true, hqLocation: true },
-  });
+  const company = await getCompanyBySlug(slug);
   if (!company) return { title: 'Company not found' };
   const where = [company.industry, company.hqLocation].filter(Boolean).join(' · ');
   return {
@@ -24,11 +37,7 @@ export async function generateMetadata(
 
 export default async function CompanyDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const session = await auth();
-  const company = await prisma.company.findUnique({
-    where: { slug },
-    include: { sentiments: true },
-  });
+  const company = await getCompanyBySlug(slug);
   if (!company) notFound();
 
   return (
@@ -121,7 +130,6 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
         companyId={company.id}
         ticker={company.tickerSymbol ?? null}
         isPublic={company.isPublic}
-        canRefresh={!!session?.user}
         sentiments={company.sentiments.map((s) => ({
           source: s.source,
           score: s.score,

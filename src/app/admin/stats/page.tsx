@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { getAdminEmail } from '@/lib/admin';
+import { getPageViewStats, getTopCompanyPageViews } from '@/lib/pageviews';
 
 /**
  * Private admin stats page. Returns 404 to anyone whose email isn't in
@@ -63,6 +64,8 @@ export default async function AdminStatsPage() {
     staleStock,
     topActive,
     lifetimeAgg,
+    pageViews,
+    topCompanyViews,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { createdAt: { gte: startOfToday } } }),
@@ -137,6 +140,8 @@ export default async function AdminStatsPage() {
         lifetimeAiInsights: true,
       },
     }),
+    getPageViewStats(),
+    getTopCompanyPageViews(10),
   ]);
 
   const lifetimeOffers = lifetimeAgg._sum.lifetimeOffers ?? 0;
@@ -245,6 +250,96 @@ export default async function AdminStatsPage() {
           <Stat label="AI insights (currently in DB)" value={totalInsights} />
           <Stat label="AI insights (lifetime LLM calls)" value={lifetimeAiInsights} />
         </Card>
+      </section>
+
+      <section className="card space-y-3">
+        <h2 className="font-semibold">Traffic (page views)</h2>
+        <p className="text-xs text-[rgb(var(--muted-foreground))]">
+          <strong>Live traffic now lives in Azure Application Insights</strong>{' '}
+          (page views, sessions, geo, route timings). The numbers below are
+          the historical archive from the previous server-side counter and
+          stop growing at the deploy that swapped to client-side tracking.
+        </p>
+        <div className="grid gap-3 md:grid-cols-4">
+          <Stat label="Today" value={pageViews.todayTotal} />
+          <Stat label="Last 7 days" value={pageViews.last7dTotal} />
+          <Stat label="Last 30 days" value={pageViews.last30dTotal} />
+          <Stat label="All-time" value={pageViews.allTimeTotal} />
+        </div>
+      </section>
+
+      <section className="card space-y-3">
+        <h2 className="font-semibold">Top pages — last 30 days</h2>
+        <p className="text-xs text-[rgb(var(--muted-foreground))]">
+          Grouped by route pattern (not literal URL), so /companies/[slug]
+          aggregates every company page. Sponsorship value scales with the
+          number of views on the surface a sponsor would appear on.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wide text-[rgb(var(--muted-foreground))]">
+                <th className="py-2 pr-3">Route</th>
+                <th className="py-2 pr-3 text-right">Views (30d)</th>
+                <th className="py-2 pr-3 text-right">Share</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pageViews.byRoute30d.map((r) => (
+                <tr key={r.route} className="border-t">
+                  <td className="py-2 pr-3 font-mono">{r.route}</td>
+                  <td className="py-2 pr-3 text-right font-mono">{r.count.toLocaleString()}</td>
+                  <td className="py-2 pr-3 text-right text-[rgb(var(--muted-foreground))]">
+                    {pct(r.count, pageViews.last30dTotal)}%
+                  </td>
+                </tr>
+              ))}
+              {pageViews.byRoute30d.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="py-3 text-center text-[rgb(var(--muted-foreground))]">
+                    No traffic recorded yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="card space-y-3">
+        <h2 className="font-semibold">Top 10 company pages by lifetime views</h2>
+        <p className="text-xs text-[rgb(var(--muted-foreground))]">
+          Per-company traffic. This is the concrete number a sponsor would
+          care about — &ldquo;sponsor the Microsoft company page&rdquo;
+          implies the views below.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wide text-[rgb(var(--muted-foreground))]">
+                <th className="py-2 pr-3">Company</th>
+                <th className="py-2 pr-3">Slug</th>
+                <th className="py-2 pr-3 text-right">Views (lifetime)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topCompanyViews.map((c) => (
+                <tr key={c.id} className="border-t">
+                  <td className="py-2 pr-3">{c.name}</td>
+                  <td className="py-2 pr-3 font-mono text-[rgb(var(--muted-foreground))]">{c.slug}</td>
+                  <td className="py-2 pr-3 text-right font-mono">{c.viewsLifetime.toLocaleString()}</td>
+                </tr>
+              ))}
+              {topCompanyViews.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="py-3 text-center text-[rgb(var(--muted-foreground))]">
+                    No company pages viewed yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="grid gap-3 md:grid-cols-2">

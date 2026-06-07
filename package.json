@@ -32,6 +32,7 @@
     "@auth/prisma-adapter": "^2.11.2",
     "@google/genai": "^2.0.1",
     "@hookform/resolvers": "^5.2.2",
+    "@microsoft/applicationinsights-web": "^3.4.1",
     "@prisma/client": "^6.19.3",
     "@radix-ui/react-dialog": "^1.1.15",
     "bcryptjs": "^3.0.3",

@@ -1,6 +1,11 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
+// Pure JSX, no DB / no auth-dependent UI -- prerender at build time and
+// serve from the SWA CDN edge instead of round-tripping to the Functions
+// backend on every request.
+export const dynamic = 'force-static';
+
 export const metadata: Metadata = {
   title: 'Terms of Service',
   description:

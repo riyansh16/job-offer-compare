@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Spinner } from './ui/Spinner';
 
@@ -12,11 +12,22 @@ interface Sentiment {
   fetchedAt: string;
 }
 
+// Lightweight client-side check for an Auth.js v5 session cookie. We don't
+// validate the JWT here -- if the cookie is stale, the /api/companies/.../refresh
+// route returns 401 and the panel surfaces a toast. This lets the parent
+// company page render as fully-static ISR (no server-side auth() call) and
+// still gate the refresh button to "looks signed in" visitors.
+function hasSessionCookie(): boolean {
+  if (typeof document === 'undefined') return false;
+  return document.cookie
+    .split(';')
+    .some((c) => /(?:^|\s)(?:__Secure-)?authjs\.session-token=/.test(c));
+}
+
 export function CompanyRefreshPanel({
   companyId,
   ticker,
   isPublic,
-  canRefresh = false,
   sentiments,
   initialCurrentPrice,
   initialCagr5y,
@@ -26,7 +37,6 @@ export function CompanyRefreshPanel({
   companyId: string;
   ticker: string | null;
   isPublic?: boolean;
-  canRefresh?: boolean;
   sentiments: Sentiment[];
   initialCurrentPrice?: number | null;
   initialCagr5y?: number | null;
@@ -35,6 +45,15 @@ export function CompanyRefreshPanel({
 }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  // Initial value is false so static ISR HTML renders the disabled state;
+  // useEffect promotes it to true post-mount if a session cookie is present.
+  // Worst case (cookie present but expired): user clicks refresh, API returns
+  // 401, toast surfaces the error -- acceptable UX in exchange for shedding
+  // the per-request auth() call from the parent page.
+  const [canRefresh, setCanRefresh] = useState(false);
+  useEffect(() => {
+    setCanRefresh(hasSessionCookie());
+  }, []);
   // Sentiment is read-only here — it auto-refreshes when stale during a real
   // comparison run (see `src/lib/engine/runner.ts`). We don't expose a manual
   // refresh button to avoid letting any signed-in user hammer Reddit / HN.

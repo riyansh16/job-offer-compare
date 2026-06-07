@@ -1,6 +1,11 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
+// Pure JSX, no DB / no auth-dependent UI -- prerender at build time and
+// serve from the SWA CDN edge instead of round-tripping to the Functions
+// backend on every request.
+export const dynamic = 'force-static';
+
 export const metadata: Metadata = {
   title: 'Privacy Policy',
   description:
@@ -164,7 +169,10 @@ export default function PrivacyPage() {
           We set exactly one cookie: a secure, httpOnly session cookie issued
           by Auth.js (NextAuth) when you sign in. It contains your signed
           session token and lasts 7 days. We do not use analytics cookies or
-          third-party cookies.
+          third-party cookies. We do keep an anonymous, server-side counter
+          of how many times each page is rendered (no IP, no cookie, no
+          user-agent retained) so we can report aggregate traffic to
+          potential sponsors.
         </p>
       </Section>
 

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { unstable_cache } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { Building2 } from 'lucide-react';
 import { CompaniesFilters, type SortKey } from '@/components/CompaniesFilters';
@@ -10,6 +11,27 @@ export const metadata: Metadata = {
   description:
     'Browse the OfferLens company catalog — Indeed reviews, layoff signals, and stock CAGR for companies you might get an offer from.',
 };
+
+// Filter-dropdown options (distinct industries + sizes across the whole
+// catalog) change at most when a company is added/edited -- which only
+// happens via cron or admin tooling, not user traffic. Cache for 1 hour
+// so the filter UI stops triggering a full-catalog scan on every render.
+const getFilterOptions = unstable_cache(
+  async () => {
+    const rows = await prisma.company.findMany({
+      select: { industry: true, size: true },
+    });
+    const industries = Array.from(
+      new Set(rows.map((c) => c.industry).filter((v): v is string => !!v)),
+    ).sort();
+    const sizes = Array.from(
+      new Set(rows.map((c) => c.size).filter((v): v is string => !!v)),
+    ).sort();
+    return { industries, sizes, totalCompanies: rows.length };
+  },
+  ['companies-filter-options'],
+  { revalidate: 3600, tags: ['companies'] },
+);
 
 type SearchParams = { [key: string]: string | string[] | undefined };
 
@@ -43,8 +65,9 @@ export default async function CompaniesIndexPage({
   if (size) where.size = size;
 
   // Filter option lists need to come from the full catalog so they stay
-  // stable as the user narrows results.
-  const [companies, allForOptions] = await Promise.all([
+  // stable as the user narrows results. Cached separately (see top of file)
+  // so only the filtered query actually hits the DB per request.
+  const [companies, filterOptions] = await Promise.all([
     prisma.company.findMany({
       where,
       orderBy:
@@ -54,17 +77,10 @@ export default async function CompaniesIndexPage({
             ? [{ size: 'asc' }, { name: 'asc' }]
             : { name: 'asc' },
     }),
-    prisma.company.findMany({
-      select: { industry: true, size: true },
-    }),
+    getFilterOptions(),
   ]);
 
-  const industries = Array.from(
-    new Set(allForOptions.map((c) => c.industry).filter((v): v is string => !!v)),
-  ).sort();
-  const sizes = Array.from(
-    new Set(allForOptions.map((c) => c.size).filter((v): v is string => !!v)),
-  ).sort();
+  const { industries, sizes, totalCompanies } = filterOptions;
 
   const hasFilters = !!(q || industry || size || sort !== 'name');
 
@@ -73,7 +89,7 @@ export default async function CompaniesIndexPage({
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Companies</h1>
         <p className="text-xs text-[rgb(var(--muted-foreground))]">
-          Showing {companies.length} of {allForOptions.length}
+          Showing {companies.length} of {totalCompanies}
         </p>
       </header>
 

@@ -2,11 +2,12 @@ import type { MetadataRoute } from 'next';
 import { prisma } from '@/lib/db';
 import { siteUrl } from '@/lib/site';
 
-// Regenerate once per day at request time, not at build time.
-// Azure SWA doesn't expose DATABASE_URL during the build step, so any DB
-// access during prerender breaks the deploy (see TODO post-domain notes).
+// Daily ISR. The previous combo of `revalidate = 86400` + `force-dynamic`
+// was self-defeating -- force-dynamic disables the ISR cache, so the
+// sitemap was actually re-querying Postgres on every crawler hit (and
+// crawlers hit /sitemap.xml a lot). With force-dynamic dropped, the
+// try/catch below still handles build-time prerender without DATABASE_URL.
 export const revalidate = 86400;
-export const dynamic = 'force-dynamic';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();

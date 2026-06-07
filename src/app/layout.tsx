@@ -4,6 +4,7 @@ import { TopNav } from '@/components/TopNav';
 import { Footer } from '@/components/Footer';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { AppToaster } from '@/components/AppToaster';
+import { AppInsightsInit } from '@/components/AppInsightsInit';
 import { siteUrl } from '@/lib/site';
 
 export const metadata: Metadata = {
@@ -47,7 +48,12 @@ const themeInitScript = `
 })();
 `;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Page-view tracking moved to client-side Application Insights
+  // (see src/components/AppInsightsInit.tsx). The previous server-side
+  // upsert ran on every render and was the primary cause of slow nav
+  // under cold-start + B1ms Postgres credit pressure.
+
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'WebApplication',
@@ -82,6 +88,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </main>
           <Footer />
           <AppToaster />
+          <AppInsightsInit />
         </ThemeProvider>
       </body>
     </html>
