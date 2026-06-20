@@ -59,7 +59,10 @@ async function main() {
     // --- US Big Tech (public) ---
     { name: 'Microsoft', slug: 'microsoft', tickerSymbol: 'MSFT', isPublic: true,
       hqLocation: 'Redmond, WA', industry: 'Software', size: '200000+' },
-    { name: 'Alphabet', slug: 'alphabet', tickerSymbol: 'GOOGL', isPublic: true,
+    // Brand-first so the parser's startsWith fallback matches "Google LLC",
+    // "Google India Pvt Ltd", etc. The parent name is kept in parens so the
+    // listing is still searchable as "Alphabet". Slug stays "alphabet".
+    { name: 'Google (Alphabet)', slug: 'alphabet', tickerSymbol: 'GOOGL', isPublic: true,
       hqLocation: 'Mountain View, CA', industry: 'Internet', size: '180000+' },
     { name: 'Meta', slug: 'meta', tickerSymbol: 'META', isPublic: true,
       hqLocation: 'Menlo Park, CA', industry: 'Social', size: '70000+' },
