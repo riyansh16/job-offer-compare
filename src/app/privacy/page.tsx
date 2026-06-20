@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     'What data OfferLens collects, how it is used, and your rights under India\u2019s DPDPA.',
 };
 
-const LAST_UPDATED = 'May 14, 2026';
+const LAST_UPDATED = 'June 21, 2026';
 const CONTACT_EMAIL = 'riyansh2502@gmail.com';
 const LINKEDIN_URL = 'https://www.linkedin.com/in/riyansh16';
 
@@ -54,11 +54,9 @@ export default function PrivacyPage() {
         </p>
         <ul className="ml-5 list-disc space-y-1">
           <li>
-            <strong>Account identity.</strong> If you sign in with Google, we
+            <strong>Account identity.</strong> Sign-in is via Google only. We
             receive your name, email address, and Google profile picture URL.
-            If you create a local password account (only available in dev
-            instances), we store your email and a one-way bcrypt hash of your
-            password — never the password itself.
+            We never see or store your Google password.
           </li>
           <li>
             <strong>Sign-in telemetry.</strong> Timestamp of your last sign-in
@@ -178,12 +176,11 @@ export default function PrivacyPage() {
 
       <Section title="8. Security">
         <p>
-          Best-effort: HTTPS everywhere, SSL-required Postgres, OAuth via
-          Google, bcrypt password hashing where applicable, and no
-          plaintext credential storage. We are not a regulated financial or
-          healthcare service; you should not enter information you would
-          not be comfortable losing in a worst-case breach. If you discover
-          a vulnerability, please report it to{' '}
+          Best-effort: HTTPS everywhere, SSL-required Postgres, and Google
+          OAuth for sign-in (we never handle your password). We are not a
+          regulated financial or healthcare service; you should not enter
+          information you would not be comfortable losing in a worst-case
+          breach. If you discover a vulnerability, please report it to{' '}
           <a className="link" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>{' '}
           before disclosing publicly.
         </p>
