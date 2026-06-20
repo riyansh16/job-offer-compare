@@ -160,29 +160,33 @@ function tryBuildProvider(provider: string): AiProvider | null {
   // Use AI_MODEL only when it's compatible with the provider; otherwise the
   // provider's own default. Prevents "gpt-4o-mini not found" when AI_MODEL
   // was set for OpenAI/GitHub Models but Gemini is being used.
-  const envModel = process.env.AI_MODEL;
+  // Trim env values: SWA/portal app settings frequently carry a stray leading
+  // or trailing space from copy-paste, which the portal hides in its display
+  // but stores verbatim. An untrimmed deployment name (e.g. "gpt-4.1-mini ")
+  // makes Azure return 404 "deployment does not exist".
+  const envModel = process.env.AI_MODEL?.trim();
   const model =
     envModel && isModelCompatible(provider, envModel)
       ? envModel
       : defaultModelFor(provider);
 
   if (provider === 'gemini') {
-    const key = process.env.GEMINI_API_KEY;
+    const key = process.env.GEMINI_API_KEY?.trim();
     if (!key) return null;
     return new GeminiProvider(model, key);
   }
 
   if (provider === 'azure-openai') {
-    const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
-    const key = process.env.AZURE_OPENAI_API_KEY;
-    const deployment = process.env.AZURE_OPENAI_DEPLOYMENT ?? model;
-    const apiVersion = process.env.AZURE_OPENAI_API_VERSION ?? '2024-10-21';
+    const endpoint = process.env.AZURE_OPENAI_ENDPOINT?.trim();
+    const key = process.env.AZURE_OPENAI_API_KEY?.trim();
+    const deployment = process.env.AZURE_OPENAI_DEPLOYMENT?.trim() || model;
+    const apiVersion = process.env.AZURE_OPENAI_API_VERSION?.trim() || '2024-10-21';
     if (!endpoint || !key) return null;
     return new AzureOpenAiProvider(deployment, endpoint, key, apiVersion);
   }
 
   if (provider === 'github-models') {
-    const token = process.env.GITHUB_TOKEN;
+    const token = process.env.GITHUB_TOKEN?.trim();
     if (!token) return null;
     return new GitHubModelsProvider(model, token);
   }
