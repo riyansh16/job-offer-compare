@@ -156,6 +156,14 @@ model Company {
   stockCurrentPriceUsd Float?
   stockUpdatedAt       DateTime?
 
+  // Lifetime view count for the public /companies/[slug] page. Bumped
+  // (best-effort) from the root layout via src/lib/pageviews.ts. Powers
+  // the "top companies by traffic" table on /admin/stats, which is the
+  // rate-card data for native company-page sponsorships
+  // (see docs/MONETIZATION.md §3 — sponsorships are allowed on company
+  // pages but never on the user's own comparison surface).
+  viewsLifetime        Int      @default(0)
+
   createdAt         DateTime @default(now())
 
   offers            JobOffer[]
@@ -276,4 +284,23 @@ model AiInsight {
   // 'Verdict' rows could accumulate per comparison.
   @@unique([comparisonId, kind])
   @@index([comparisonId, kind])
+}
+
+// Aggregate page-view counter keyed by (UTC date, route pattern). One row
+// per route per day -- e.g. ~10 routes × 365 days ≈ 3.6K rows/year, so
+// storage stays trivial even at scale and the design rule on
+// src/app/admin/stats/page.tsx ("never write per-event telemetry rows")
+// still holds. Powers the traffic + per-page breakdown on /admin/stats,
+// which is the rate-card data for native sponsorships
+// (see docs/MONETIZATION.md §3 / §5). The `route` value is the Next.js
+// route pattern (e.g. "/companies/[slug]"), NOT the literal URL, so we
+// don't store anything that could identify a user's specific browsing.
+model PageViewDay {
+  date  String // YYYY-MM-DD in UTC
+  route String
+  count Int    @default(0)
+
+  @@id([date, route])
+  @@index([date])
+  @@index([route])
 }
