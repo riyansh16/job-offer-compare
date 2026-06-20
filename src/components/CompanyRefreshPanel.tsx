@@ -13,18 +13,6 @@ interface Sentiment {
   fetchedAt: string;
 }
 
-// Lightweight client-side check for an Auth.js v5 session cookie. We don't
-// validate the JWT here -- if the cookie is stale, the /api/companies/.../refresh
-// route returns 401 and the panel surfaces a toast. This lets the parent
-// company page render as fully-static ISR (no server-side auth() call) and
-// still gate the refresh button to "looks signed in" visitors.
-function hasSessionCookie(): boolean {
-  if (typeof document === 'undefined') return false;
-  return document.cookie
-    .split(';')
-    .some((c) => /(?:^|\s)(?:__Secure-)?authjs\.session-token=/.test(c));
-}
-
 export function CompanyRefreshPanel({
   companyId,
   ticker,
@@ -46,14 +34,28 @@ export function CompanyRefreshPanel({
 }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  // Initial value is false so static ISR HTML renders the disabled state;
-  // useEffect promotes it to true post-mount if a session cookie is present.
-  // Worst case (cookie present but expired): user clicks refresh, API returns
-  // 401, toast surfaces the error -- acceptable UX in exchange for shedding
-  // the per-request auth() call from the parent page.
+  // Initial value is false so static ISR HTML renders without the button;
+  // after mount we ask /api/auth/session whether the visitor is signed in.
+  // The Auth.js session cookie is httpOnly (invisible to document.cookie),
+  // so we can't read it directly -- this lightweight endpoint is the source
+  // of truth while keeping the parent page fully-static ISR (no server-side
+  // auth() call). If the session is stale, the refresh API still returns 401
+  // and the panel surfaces a toast.
   const [canRefresh, setCanRefresh] = useState(false);
   useEffect(() => {
-    setCanRefresh(hasSessionCookie());
+    let active = true;
+    fetch('/api/auth/session', { headers: { accept: 'application/json' } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((session) => {
+        if (active) setCanRefresh(Boolean(session?.user));
+      })
+      .catch(() => {
+        // Network/parse failure -- leave the button hidden; the API enforces
+        // auth regardless, so nothing is exposed.
+      });
+    return () => {
+      active = false;
+    };
   }, []);
   // Sentiment is read-only here — it auto-refreshes when stale during a real
   // comparison run (see `src/lib/engine/runner.ts`). We don't expose a manual
