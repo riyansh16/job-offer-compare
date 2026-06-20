@@ -85,7 +85,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     foundingDate: '2026',
     sameAs: [
       'https://www.linkedin.com/in/riyansh16',
-      // TODO: add LinkedIn company page URL once created
+        'https://www.linkedin.com/company/offerlens-app/',
       // TODO: add ProductHunt launch URL once live
     ],
   };
