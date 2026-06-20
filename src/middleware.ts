@@ -7,9 +7,14 @@ const PUBLIC_PATHS = ['/', '/auth/signin', '/auth/signup', '/auth/error', '/priv
 export default auth((req: NextRequest & { auth: unknown }) => {
   // Canonicalize www -> apex so NextAuth's Host always matches AUTH_URL.
   // next.config.mjs redirects() is ignored by SWA's hybrid runtime; doing
-  // it here guarantees the 308 fires before any auth logic runs.
-  const host = req.headers.get('host');
-  if (host === 'www.offerlens.in') {
+  // it here guarantees the 308 fires before any auth logic runs. SWA's
+  // proxy rewrites `Host` to the internal *.azurestaticapps.net hostname
+  // and puts the real one in `x-forwarded-host`, so check that first.
+  const publicHost =
+    req.headers.get('x-forwarded-host') ??
+    req.headers.get('host') ??
+    req.nextUrl.host;
+  if (publicHost?.toLowerCase() === 'www.offerlens.in') {
     const url = req.nextUrl.clone();
     url.host = 'offerlens.in';
     url.protocol = 'https:';
