@@ -6,6 +6,7 @@ import { Briefcase, FileText, Scale, UserCog } from 'lucide-react';
 import { ensurePresetWeightProfiles } from '@/lib/actions';
 import { formatMoney } from '@/lib/utils';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { ClientDate } from '@/components/ui/ClientDate';
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -188,7 +189,7 @@ export default async function DashboardPage() {
                     <div className="font-medium group-hover:underline">{c.name}</div>
                     <div className="text-xs text-[rgb(var(--muted-foreground))]">
                       {c.offerIdsCsv.split(',').length} offers ·{' '}
-                      {new Date(c.createdAt).toLocaleString()}
+                      <ClientDate value={c.createdAt} />
                     </div>
                   </div>
                   <span

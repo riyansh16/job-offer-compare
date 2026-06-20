@@ -9,6 +9,7 @@ import { DeleteComparisonButton } from '@/components/DeleteOfferButton';
 import { LayoffSignals } from '@/components/LayoffSignals';
 import { LeetcodeCompLinks } from '@/components/LeetcodeCompLinks';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
+import { ClientDate } from '@/components/ui/ClientDate';
 import { isAiEnabled } from '@/lib/ai/provider';
 
 export default async function ComparisonPage({ params }: { params: Promise<{ id: string }> }) {
@@ -117,7 +118,7 @@ export default async function ComparisonPage({ params }: { params: Promise<{ id:
         <div>
           <h1 className="text-2xl font-semibold">{c.name}</h1>
           <p className="text-sm text-[rgb(var(--muted-foreground))]">
-            Created {new Date(c.createdAt).toLocaleString()}
+            Created <ClientDate value={c.createdAt} />
           </p>
         </div>
         <DeleteComparisonButton id={c.id} />

@@ -6,6 +6,7 @@ import { OfferForm } from '@/components/OfferForm';
 import { DeleteOfferButton, SetAsCurrentButton } from '@/components/DeleteOfferButton';
 import { OfferEditToggle } from '@/components/OfferEditToggle';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
+import { ClientDate } from '@/components/ui/ClientDate';
 import { formatMoney } from '@/lib/utils';
 
 export default async function OfferDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -111,7 +112,7 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
                   {u.name}
                 </Link>
                 <span className="text-xs text-[rgb(var(--muted-foreground))]">
-                  {new Date(u.createdAt).toLocaleDateString()}
+                  <ClientDate value={u.createdAt} mode="date" />
                 </span>
               </li>
             ))}

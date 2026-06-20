@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { getAdminEmail } from '@/lib/admin';
+import { ClientDate } from '@/components/ui/ClientDate';
 
 /**
  * Private admin stats page. Returns 404 to anyone whose email isn't in
@@ -307,10 +308,10 @@ export default async function AdminStatsPage() {
                   <td className="py-2 pr-3">{u.name ?? u.email}</td>
                   <td className="py-2 pr-3 text-right font-mono">{u.signInCount}</td>
                   <td className="py-2 pr-3 text-[rgb(var(--muted-foreground))]">
-                    {u.lastSignInAt ? new Date(u.lastSignInAt).toLocaleString() : '—'}
+                    <ClientDate value={u.lastSignInAt} />
                   </td>
                   <td className="py-2 pr-3 text-[rgb(var(--muted-foreground))]">
-                    {new Date(u.createdAt).toLocaleDateString()}
+                    <ClientDate value={u.createdAt} mode="date" />
                   </td>
                 </tr>
               ))}
