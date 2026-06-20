@@ -5,11 +5,13 @@ import { prisma } from '@/lib/db';
 import { Building2 } from 'lucide-react';
 import { CompaniesFilters, type SortKey } from '@/components/CompaniesFilters';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { siteUrl } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: 'Companies',
   description:
     'Browse the OfferLens company catalog — Indeed reviews, layoff signals, and stock CAGR for companies you might get an offer from.',
+  alternates: { canonical: `${siteUrl}/companies` },
 };
 
 // Filter-dropdown options (distinct industries + sizes across the whole

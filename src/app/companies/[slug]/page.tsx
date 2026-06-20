@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { prisma } from '@/lib/db';
 import { CompanyRefreshPanel } from '@/components/CompanyRefreshPanel';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
+import { siteUrl } from '@/lib/site';
 
 // Per-request dedupe: generateMetadata and the page itself both need the
 // same company row. Wrapping in React cache() collapses the two queries
@@ -32,6 +33,7 @@ export async function generateMetadata(
     title: `${company.name} — Reviews, Stock & Layoff Signals`,
     description:
       `${company.name}${where ? ` (${where})` : ''} — Indeed reviews, work-life balance & culture breakdown, layoff signals, and stock CAGR.`,
+    alternates: { canonical: `${siteUrl}/companies/${slug}` },
   };
 }
 

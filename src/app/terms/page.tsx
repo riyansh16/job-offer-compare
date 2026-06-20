@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { siteUrl } from '@/lib/site';
 
 // Pure JSX, no DB / no auth-dependent UI -- prerender at build time and
 // serve from the SWA CDN edge instead of round-tripping to the Functions
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
   title: 'Terms of Service',
   description:
     'The terms governing your use of OfferLens. Plain English, India-governed.',
+  alternates: { canonical: `${siteUrl}/terms` },
 };
 
 const LAST_UPDATED = 'May 14, 2026';

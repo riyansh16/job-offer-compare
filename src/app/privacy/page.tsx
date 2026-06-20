@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { siteUrl } from '@/lib/site';
 
 // Pure JSX, no DB / no auth-dependent UI -- prerender at build time and
 // serve from the SWA CDN edge instead of round-tripping to the Functions
@@ -9,7 +10,8 @@ export const dynamic = 'force-static';
 export const metadata: Metadata = {
   title: 'Privacy Policy',
   description:
-    'What data OfferLens collects, how it is used, and your rights under India\u2019s DPDPA.',
+    'What data OfferLens collects, how it is used, and your rights under India’s DPDPA.',
+  alternates: { canonical: `${siteUrl}/privacy` },
 };
 
 const LAST_UPDATED = 'June 21, 2026';

@@ -14,9 +14,10 @@ export default async function Home() {
           Compare your job offers, side by side.
         </h1>
         <p className="mx-auto max-w-2xl text-balance text-lg text-[rgb(var(--muted-foreground))]">
-          Rank competing offers across pay, equity, work-life, and company reviews.
-          Pulls in related LeetCode comp reports for your designation and years of
-          experience. AI verdicts cite the data instead of making it up.
+          OfferLens ranks competing job offers across pay, equity, work-life,
+          and company reviews. Pulls in related LeetCode comp reports for your
+          designation and years of experience. AI verdicts cite the data
+          instead of making it up.
         </p>
         <div className="flex justify-center gap-3 pt-4">
           {isSignedIn ? (
