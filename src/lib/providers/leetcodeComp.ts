@@ -256,7 +256,14 @@ function applyFunnel(
   designations: string[],
   yoe: number | null,
 ): Topic[] {
-  const afterCompany = all.filter((t) => matchesCompany(t.title, company));
+  // A catalog name like "Google (Alphabet)" or "Honasa (Mamaearth)" carries the
+  // legal parent in parens. LeetCode titles use one brand or the other, never
+  // the combined "Brand (Parent)" string, so match if the title contains EITHER
+  // the outside-paren brand OR the inside-paren name.
+  const candidates = companyCandidates(company);
+  const afterCompany = all.filter((t) =>
+    candidates.some((c) => matchesCompany(t.title, c)),
+  );
   const afterDesignation =
     designations.length > 0
       ? afterCompany.filter((t) =>
@@ -282,6 +289,28 @@ function matchesCompany(title: string, company: string): boolean {
   if (t.includes(c)) return true;
   const tokens = c.split(/\s+/).filter((x) => x.length >= 2);
   return tokens.length > 0 && tokens.every((tok) => t.includes(tok));
+}
+
+/**
+ * Split a catalog name into the brand names a LeetCode post might actually use.
+ * "Google (Alphabet)" → ["Google", "Alphabet"], "Honasa (Mamaearth)" →
+ * ["Honasa", "Mamaearth"]. Names without parentheses yield a single candidate.
+ * Each candidate is matched independently (OR) so the legal-parent suffix the
+ * catalog adds for the offer parser doesn't strand companies with zero matches.
+ */
+function companyCandidates(company: string): string[] {
+  const candidates = new Set<string>();
+  const outside = company
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (outside) candidates.add(outside);
+  for (const m of company.matchAll(/\(([^)]*)\)/g)) {
+    const inside = m[1].trim();
+    if (inside) candidates.add(inside);
+  }
+  if (candidates.size === 0) candidates.add(company.trim());
+  return [...candidates];
 }
 
 function matchesDesignation(title: string, designation: string): boolean {
