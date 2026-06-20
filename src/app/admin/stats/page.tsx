@@ -35,6 +35,20 @@ export default async function AdminStatsPage() {
   const adminEmail = await getAdminEmail();
   if (!adminEmail) notFound();
 
+  // Exclude the admin's own account from every metric — otherwise dogfooding
+  // (creating offers, running comparisons, signing in) inflates the numbers
+  // we use to judge real adoption. Filter is applied at the User row via
+  // email, and at every per-user model (offers/comparisons/insights) via
+  // userId, so the admin disappears from counts, top-N tables, groupBys,
+  // and lifetime sums alike.
+  const adminUser = await prisma.user.findUnique({
+    where: { email: adminEmail },
+    select: { id: true },
+  });
+  const adminUserId = adminUser?.id ?? null;
+  const notAdminUser = adminUserId ? { userId: { not: adminUserId } } : {};
+  const notAdminEmail = { email: { not: adminEmail } };
+
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -65,28 +79,29 @@ export default async function AdminStatsPage() {
     topActive,
     lifetimeAgg,
   ] = await Promise.all([
-    prisma.user.count(),
-    prisma.user.count({ where: { createdAt: { gte: startOfToday } } }),
-    prisma.user.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
-    prisma.user.count({ where: { lastSignInAt: { gte: startOfToday } } }),
-    prisma.user.count({ where: { lastSignInAt: { gte: sevenDaysAgo } } }),
-    prisma.comparison.count(),
-    prisma.comparison.count({ where: { createdAt: { gte: startOfToday } } }),
-    prisma.comparison.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
-    prisma.jobOffer.count(),
-    prisma.jobOffer.count({ where: { createdAt: { gte: startOfToday } } }),
-    prisma.jobOffer.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
-    prisma.aiInsight.count(),
-    prisma.aiInsight.count({ where: { generatedAt: { gte: startOfToday } } }),
-    prisma.aiInsight.count({ where: { generatedAt: { gte: sevenDaysAgo } } }),
+    prisma.user.count({ where: notAdminEmail }),
+    prisma.user.count({ where: { ...notAdminEmail, createdAt: { gte: startOfToday } } }),
+    prisma.user.count({ where: { ...notAdminEmail, createdAt: { gte: sevenDaysAgo } } }),
+    prisma.user.count({ where: { ...notAdminEmail, lastSignInAt: { gte: startOfToday } } }),
+    prisma.user.count({ where: { ...notAdminEmail, lastSignInAt: { gte: sevenDaysAgo } } }),
+    prisma.comparison.count({ where: notAdminUser }),
+    prisma.comparison.count({ where: { ...notAdminUser, createdAt: { gte: startOfToday } } }),
+    prisma.comparison.count({ where: { ...notAdminUser, createdAt: { gte: sevenDaysAgo } } }),
+    prisma.jobOffer.count({ where: notAdminUser }),
+    prisma.jobOffer.count({ where: { ...notAdminUser, createdAt: { gte: startOfToday } } }),
+    prisma.jobOffer.count({ where: { ...notAdminUser, createdAt: { gte: sevenDaysAgo } } }),
+    prisma.aiInsight.count({ where: { comparison: notAdminUser } }),
+    prisma.aiInsight.count({ where: { comparison: notAdminUser, generatedAt: { gte: startOfToday } } }),
+    prisma.aiInsight.count({ where: { comparison: notAdminUser, generatedAt: { gte: sevenDaysAgo } } }),
     // groupBy lets us bucket users by offer/comparison count without N queries.
-    prisma.jobOffer.groupBy({ by: ['userId'], _count: { _all: true } }),
-    prisma.comparison.groupBy({ by: ['userId'], _count: { _all: true } }),
+    prisma.jobOffer.groupBy({ by: ['userId'], where: notAdminUser, _count: { _all: true } }),
+    prisma.comparison.groupBy({ by: ['userId'], where: notAdminUser, _count: { _all: true } }),
     // Top companies by total offers across all users — early signal for
     // which company pages would be worth sponsoring (the only ad surface
     // allowed by docs/MONETIZATION.md §5.5).
     prisma.jobOffer.groupBy({
       by: ['companyId'],
+      where: notAdminUser,
       _count: { _all: true },
       orderBy: { _count: { companyId: 'desc' } },
       take: 10,
@@ -121,6 +136,7 @@ export default async function AdminStatsPage() {
       },
     }),
     prisma.user.findMany({
+      where: notAdminEmail,
       orderBy: [{ signInCount: 'desc' }, { lastSignInAt: 'desc' }],
       take: 10,
       select: { email: true, name: true, signInCount: true, lastSignInAt: true, createdAt: true },
@@ -132,6 +148,7 @@ export default async function AdminStatsPage() {
     // counts is the delete rate — an early signal for which features are
     // ephemeral vs. retained, and where to gate paid features.
     prisma.user.aggregate({
+      where: notAdminEmail,
       _sum: {
         lifetimeOffers: true,
         lifetimeComparisons: true,
@@ -160,6 +177,7 @@ export default async function AdminStatsPage() {
   // Cheap because Comparison rows are small and few; if this ever gets
   // expensive, denormalize to an `offerCount` int on Comparison.
   const allComparisonCsvs = await prisma.comparison.findMany({
+    where: notAdminUser,
     select: { offerIdsCsv: true },
   });
   const totalOffersInComparisons = allComparisonCsvs.reduce(
@@ -209,7 +227,8 @@ export default async function AdminStatsPage() {
       <header>
         <h1 className="text-2xl font-semibold">Admin · Usage stats</h1>
         <p className="text-sm text-[rgb(var(--muted-foreground))]">
-          Signed in as {adminEmail}. Refresh the page to update.
+          Signed in as {adminEmail}. Your own account is excluded from every
+          metric below. Refresh the page to update.
         </p>
       </header>
 
