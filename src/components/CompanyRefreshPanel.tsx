@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Spinner } from './ui/Spinner';
+import { ClientDate } from './ui/ClientDate';
 
 interface Sentiment {
   source: string;
@@ -125,23 +126,20 @@ export function CompanyRefreshPanel({
             </p>
           ) : (
             <ul className="space-y-2 text-xs">
-              {latest.map((s) => {
-                const fetched = new Date(s.fetchedAt);
-                return (
-                  <li key={s.source} className="rounded border p-2">
-                    <div className="flex items-center justify-between font-medium">
-                      <span>{s.source}</span>
-                      <span className={s.score >= 0.05 ? 'text-[rgb(var(--success))]' : s.score <= -0.05 ? 'text-[rgb(var(--danger))]' : ''}>
-                        score {s.score.toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="text-[rgb(var(--muted-foreground))]">{s.summary}</div>
-                    <div className="mt-1 text-[10px] text-[rgb(var(--muted-foreground))]">
-                      Refreshed {fetched.toLocaleDateString()} · n={s.sampleSize}
-                    </div>
-                  </li>
-                );
-              })}
+              {latest.map((s) => (
+                <li key={s.source} className="rounded border p-2">
+                  <div className="flex items-center justify-between font-medium">
+                    <span>{s.source}</span>
+                    <span className={s.score >= 0.05 ? 'text-[rgb(var(--success))]' : s.score <= -0.05 ? 'text-[rgb(var(--danger))]' : ''}>
+                      score {s.score.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="text-[rgb(var(--muted-foreground))]">{s.summary}</div>
+                  <div className="mt-1 text-[10px] text-[rgb(var(--muted-foreground))]">
+                    Refreshed <ClientDate value={s.fetchedAt} mode="date" /> · n={s.sampleSize}
+                  </div>
+                </li>
+              ))}
             </ul>
           )}
         </div>
@@ -185,7 +183,7 @@ export function CompanyRefreshPanel({
               </div>
               {stockInfo.updatedAt && (
                 <p className="text-[11px] text-[rgb(var(--muted-foreground))]">
-                  Last refreshed: {new Date(stockInfo.updatedAt).toLocaleString()}
+                  Last refreshed: <ClientDate value={stockInfo.updatedAt} mode="datetime" />
                 </p>
               )}
             </>

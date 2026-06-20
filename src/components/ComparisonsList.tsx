@@ -6,6 +6,7 @@ import { useMemo, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { Trash } from 'lucide-react';
 import { ConfirmDialog } from './ui/ConfirmDialog';
+import { ClientDate } from './ui/ClientDate';
 
 export interface ComparisonRow {
   id: string;
@@ -145,7 +146,7 @@ export function ComparisonsList({ items }: { items: ComparisonRow[] }) {
                 <div className="min-w-0">
                   <div className="font-medium group-hover:underline">{c.name}</div>
                   <div className="text-xs text-[rgb(var(--muted-foreground))]">
-                    {c.offerCount} offers · {new Date(c.createdAt).toLocaleString()}
+                    {c.offerCount} offers · <ClientDate value={c.createdAt} mode="datetime" />
                   </div>
                 </div>
                 <span
