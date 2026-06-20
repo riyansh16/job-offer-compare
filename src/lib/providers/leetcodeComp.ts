@@ -340,6 +340,17 @@ function expandDesignation(d: string): string[] {
     out.add(`level ${lvl[1]}`);
   }
 
+  // A bare numeric level like "63" entered without the "L" prefix. FAANG-style
+  // ladders (Microsoft L63, Google L5, Amazon-not) write it as "L<n>" in post
+  // titles, and matchesDesignation treats bare "63" as a code needing a
+  // non-alphanumeric boundary -- so "63" never matches "L63". Add the
+  // L-prefixed and "level N" forms; the original bare number stays too.
+  const bareLevel = d.match(/^(\d{1,3})$/);
+  if (bareLevel) {
+    out.add(`l${bareLevel[1]}`);
+    out.add(`level ${bareLevel[1]}`);
+  }
+
   const roman: Record<string, string> = { '1': 'i', '2': 'ii', '3': 'iii', '4': 'iv', '5': 'v' };
   const arabic: Record<string, string> = { i: '1', ii: '2', iii: '3', iv: '4', v: '5' };
 
@@ -370,6 +381,27 @@ function expandDesignation(d: string): string[] {
     const num = longForm[2].toLowerCase();
     addRoleNumVariants(`software ${longForm[1].toLowerCase()}`, num);
     for (const role of ['sde', 'swe', 'sse']) addRoleNumVariants(role, num);
+    return [...out];
+  }
+
+  // Ranked-but-unnumbered titles: "Senior/Staff/Principal/Lead Software
+  // Engineer". LeetCode posts abbreviate these freely ("Senior SWE", "Sr SDE",
+  // and -- for senior specifically -- the "SSE" code), so the verbatim
+  // "senior software engineer" misses them. Emit the abbreviated spellings.
+  const rankedSwe = d.match(
+    /^(senior|sr|staff|principal|lead)\.?\s+software\s+(engineer|developer)$/i,
+  );
+  if (rankedSwe) {
+    const rank = rankedSwe[1].toLowerCase();
+    const isSenior = rank === 'senior' || rank === 'sr';
+    const rankWords = isSenior ? ['senior', 'sr'] : [rank];
+    for (const r of rankWords) {
+      out.add(`${r} software engineer`);
+      out.add(`${r} software developer`);
+      out.add(`${r} swe`);
+      out.add(`${r} sde`);
+    }
+    if (isSenior) out.add('sse');
     return [...out];
   }
 
