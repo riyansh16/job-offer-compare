@@ -26,9 +26,18 @@ const getFilterOptions = unstable_cache(
     const industries = Array.from(
       new Set(rows.map((c) => c.industry).filter((v): v is string => !!v)),
     ).sort();
+    // Sort by leading integer (e.g. "100+", "1000+", "10000+") so the
+    // dropdown reads 100 -> 200 -> 1000 -> ... instead of lexicographically
+    // ("100+", "1000+", "10500+", "1100+"). Fall back to localeCompare for
+    // anything without a number prefix (e.g. "1001-5000" ranges sort by the
+    // first number too).
+    const sizeRank = (s: string): number => {
+      const m = s.match(/\d+/);
+      return m ? parseInt(m[0], 10) : Number.MAX_SAFE_INTEGER;
+    };
     const sizes = Array.from(
       new Set(rows.map((c) => c.size).filter((v): v is string => !!v)),
-    ).sort();
+    ).sort((a, b) => sizeRank(a) - sizeRank(b) || a.localeCompare(b));
     return { industries, sizes, totalCompanies: rows.length };
   },
   ['companies-filter-options'],
