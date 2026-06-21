@@ -2,25 +2,23 @@ name: Refresh ratings (daily, small batch)
 
 # Runs every day at 21:30 UTC (03:00 IST). Off-peak for user traffic.
 #
-# We CANNOT do a bulk monthly dump because the 9 Gemini keys are shared with
-# user-facing PDF / image offer extraction (gemini-2.5-flash). A 238-call
-# burst would either trip per-minute rate limits or starve a user upload
-# happening at the same time. The daily slices below are tiny (~15 calls,
-# throttled to ~4 RPM), so they coexist comfortably with user uploads.
-#
-# Instead: two small slices each day that cycle the catalog naturally. BOTH
-# now use gemini-2.5-flash. flash-lite's ~22% Indeed-extraction hit-rate was
-# too low to be worth its separate quota pool, and pro (the old escalation
-# model, ~85%) went paid-tier-only on May 30, 2026 (free-tier projects get
-# 0 RPD per `GenerateRequestsPerDayPerProjectPerModel-FreeTier`). flash's
-# ~50% hit-rate is the best free option, and ~15 calls/day is <1% of the
-# 250 RPD/key flash pool (×9 keys ≈ 2250 RPD).
-#   * Bulk slice: 10 stalest catalog rows (flash). Cycles all ~310 companies
-#     in ~31 days, re-checking successes and filling fresh gaps.
-#   * Escalation slice: 5 oldest rows still missing a rating (flash),
-#     INCLUDING ones the give-up gate retired (--include-stuck → fc>=1), so
+# The 9 Gemini keys are now DEDICATED to this cron: user-facing offer-letter
+# extraction moved off Gemini to Azure OpenAI (commit a563a96) because the
+# free Gemini API geo-blocks our Azure host region. So the whole free flash
+# pool (~250 RPD/key x 9 keys = ~2250 RPD) is available here, vs the ~40
+# calls/day below (<2%). We still spread the work across two daily slices
+# (rather than one monthly bulk dump) so a transient outage only costs a day
+# and the catalog stays evenly fresh.
+#   * Bulk slice: 30 stalest catalog rows (flash). Cycles all ~313 companies
+#     in ~10-11 days, re-checking successes and filling fresh gaps.
+#   * Escalation slice: 10 oldest rows still missing a rating (flash),
+#     INCLUDING ones the give-up gate retired (--include-stuck -> fc>=1), so
 #     the long-tail empties get re-tried instead of being stranded at fc>=2.
-# Total daily Gemini calls: ~15. Time on the runner: ~5 min.
+# flash's ~50% hit-rate is the best free option (flash-lite's ~22% was too
+# low; pro went paid-tier-only on May 30, 2026 with 0 free-tier RPD). Calls
+# are throttled to ~4 RPM (14s interval) to stay under the per-key RPM cap;
+# key rotation only kicks in if a key hits its daily limit, which 40 calls
+# won't. Total daily Gemini calls: ~40. Time on the runner: ~12 min.
 #
 # Required GitHub Actions secrets:
 #   DATABASE_URL              - prod Postgres connection string
@@ -33,13 +31,13 @@ on:
   workflow_dispatch:
     inputs:
       batch_size:
-        description: 'Bulk slice size (default 10)'
+        description: 'Bulk slice size (default 30)'
+        required: false
+        default: '30'
+      escalate_max:
+        description: 'Escalation slice size (default 10)'
         required: false
         default: '10'
-      escalate_max:
-        description: 'Escalation slice size (default 5)'
-        required: false
-        default: '5'
 
 concurrency:
   group: refresh-ratings
@@ -61,8 +59,8 @@ jobs:
       GEMINI_API_KEY_8: ${{ secrets.GEMINI_API_KEY_8 }}
       GEMINI_API_KEY_9: ${{ secrets.GEMINI_API_KEY_9 }}
       GEMINI_API_KEY_10: ${{ secrets.GEMINI_API_KEY_10 }}
-      BATCH_SIZE: ${{ github.event.inputs.batch_size || '10' }}
-      ESCALATE_MAX: ${{ github.event.inputs.escalate_max || '5' }}
+      BATCH_SIZE: ${{ github.event.inputs.batch_size || '30' }}
+      ESCALATE_MAX: ${{ github.event.inputs.escalate_max || '10' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

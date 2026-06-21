@@ -55,12 +55,12 @@ async function main() {
     : 14000;
 
   // CLI flag: --batch-size=N caps how many companies this run will touch.
-  // Critical for the daily cron: the 9 Gemini keys are SHARED with user PDF
-  // extraction (gemini-2.5-flash), so a 238-call burst would either trip RPM
-  // limits or starve user uploads of quota. Daily cron uses --batch-size=10
-  // so the catalog cycles in ~24 days while using <5% of the daily flash-lite
-  // quota pool. Default (no flag) keeps the historical 'do everything' behavior
-  // for manual bootstrap / resume runs.
+  // The daily cron uses --batch-size=30 so the catalog cycles in ~10 days.
+  // Gemini is now dedicated to ratings (user offer extraction moved to Azure
+  // OpenAI), so the only ceiling is the free flash pool (~250 RPD/key × 9 ≈
+  // 2250 RPD); 30/day is well within a single key's quota. Default (no flag)
+  // keeps the historical 'do everything' behavior for manual bootstrap /
+  // resume runs.
   const batchSizeArg = process.argv.find((a) => a.startsWith('--batch-size='));
   const batchSizeCap = batchSizeArg
     ? Math.max(1, parseInt(batchSizeArg.split('=')[1], 10) || 0)
