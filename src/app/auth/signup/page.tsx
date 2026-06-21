@@ -1,6 +1,15 @@
 import Link from 'next/link';
 import { GoogleSignInButton } from '@/components/AuthForms';
 
+// Must render at request time: googleEnabled reads AUTH_GOOGLE_ID /
+// AUTH_GOOGLE_SECRET, which on Azure SWA are runtime Application Settings
+// and are NOT present in the GitHub Actions build container. If this page
+// is statically prerendered it bakes googleEnabled=false and shows the
+// "not configured" error in production. force-dynamic keeps the env read
+// at runtime. (This page was implicitly dynamic until the layout stopped
+// calling auth() on the server in the client-navbar refactor.)
+export const dynamic = 'force-dynamic';
+
 export default function SignUpPage() {
   const googleEnabled = !!process.env.AUTH_GOOGLE_ID && !!process.env.AUTH_GOOGLE_SECRET;
   return (
