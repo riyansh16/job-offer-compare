@@ -1,22 +1,10 @@
 import type { MetadataRoute } from 'next';
-import { unstable_cache } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { siteUrl } from '@/lib/site';
 
 // Build-time prerender can run without DATABASE_URL on SWA. Keep the route
-// runtime-dynamic so crawlers get company URLs from the live DB, while
-// caching the slug query for a day to avoid DB hits on every sitemap request.
+// runtime-dynamic so crawlers get company URLs from the live DB.
 export const dynamic = 'force-dynamic';
-
-const getCompanySlugs = unstable_cache(
-  async () =>
-    prisma.company.findMany({
-      select: { slug: true },
-      orderBy: { name: 'asc' },
-    }),
-  ['sitemap-company-slugs'],
-  { revalidate: 86400 }
-);
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
@@ -29,7 +17,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   let companies: { slug: string }[] = [];
   try {
-    companies = await getCompanySlugs();
+    companies = await prisma.company.findMany({
+      select: { slug: true },
+      orderBy: { name: 'asc' },
+    });
   } catch {
     // DB unreachable. Ship static entries so /sitemap.xml always works.
     return staticEntries;
