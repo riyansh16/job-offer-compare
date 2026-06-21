@@ -1,11 +1,28 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { unstable_cache } from 'next/cache';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { Building2 } from 'lucide-react';
 import { CompaniesFilters, type SortKey } from '@/components/CompaniesFilters';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { siteUrl } from '@/lib/site';
+
+// Exactly the columns the catalog cards + sort logic need. Shared by the
+// cached default-list query and the live filtered query so both return an
+// identical row shape. `satisfies` keeps the literal type (so Prisma
+// narrows the result) while type-checking the field names.
+const COMPANY_CARD_SELECT = {
+  id: true,
+  slug: true,
+  name: true,
+  industry: true,
+  size: true,
+  hqLocation: true,
+  indeedRating: true,
+  tickerSymbol: true,
+  layoffsLast12mPct: true,
+} satisfies Prisma.CompanySelect;
 
 export const metadata: Metadata = {
   title: 'Companies',
@@ -44,6 +61,23 @@ const getFilterOptions = unstable_cache(
   { revalidate: 3600, tags: ['companies'] },
 );
 
+// Default catalog view: no filters, name-sorted. This is ~all of /companies
+// traffic (the most-visited page per App Insights), so caching it for 6h
+// turns the common path into zero DB round-trips. Everything shown on a card
+// (Indeed rating, layoffs %, ticker) refreshes at most once a day via cron
+// (see .github/workflows/cron-refresh-*.yml), so up to 6h of staleness is
+// imperceptible. Tag 'companies' lets a future revalidateTag() bust it on
+// demand; today it's purely time-based.
+const getDefaultCompanies = unstable_cache(
+  async () =>
+    prisma.company.findMany({
+      orderBy: { name: 'asc' },
+      select: COMPANY_CARD_SELECT,
+    }),
+  ['companies-default-list'],
+  { revalidate: 21600, tags: ['companies'] },
+);
+
 type SearchParams = { [key: string]: string | string[] | undefined };
 
 function pickString(value: string | string[] | undefined): string {
@@ -75,25 +109,33 @@ export default async function CompaniesIndexPage({
   if (industry) where.industry = industry;
   if (size) where.size = size;
 
-  // Filter option lists need to come from the full catalog so they stay
-  // stable as the user narrows results. Cached separately (see top of file)
-  // so only the filtered query actually hits the DB per request.
+  const hasFilters = !!(q || industry || size || sort !== 'name');
+
+  // The default view (no filters, name sort) is ~all of /companies traffic
+  // and is served from the 6h cache with zero DB round-trips. Filtered or
+  // sorted views are rare and run a live query so their ordering -- including
+  // Postgres null handling on indeedRating/size -- stays identical to before.
+  const companiesPromise = hasFilters
+    ? prisma.company.findMany({
+        where,
+        orderBy:
+          sort === 'rating'
+            ? [{ indeedRating: 'desc' }, { name: 'asc' }]
+            : sort === 'size'
+              ? [{ size: 'asc' }, { name: 'asc' }]
+              : { name: 'asc' },
+        select: COMPANY_CARD_SELECT,
+      })
+    : getDefaultCompanies();
+
+  // Filter option lists come from the full catalog (cached separately) so
+  // they stay stable as the user narrows results.
   const [companies, filterOptions] = await Promise.all([
-    prisma.company.findMany({
-      where,
-      orderBy:
-        sort === 'rating'
-          ? [{ indeedRating: 'desc' }, { name: 'asc' }]
-          : sort === 'size'
-            ? [{ size: 'asc' }, { name: 'asc' }]
-            : { name: 'asc' },
-    }),
+    companiesPromise,
     getFilterOptions(),
   ]);
 
   const { industries, sizes, totalCompanies } = filterOptions;
-
-  const hasFilters = !!(q || industry || size || sort !== 'name');
 
   return (
     <div className="space-y-6">
