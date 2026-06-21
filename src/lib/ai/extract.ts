@@ -89,15 +89,26 @@ EQUITY / STOCK — equityTotal must be the PER-YEAR vesting value:
   "shares of [Company] common stock" all describe equity.
 - If the letter says "X (USD/INR) divided by closing stock price" or "shares
   worth X", that X is the stated grant amount.
-- Two cases for converting the stated grant to equityTotal (per-year):
-  (a) Document EXPLICITLY states a vesting period ("vests over 4 years",
-      "16 quarterly installments", "3-year cliff vest"): set equityVestingYears
-      to that number and equityTotal = stated_grant / equityVestingYears.
-  (b) Document does NOT state a vesting period (only says "vests", "starts
-      vesting one year from", or is silent on duration): treat the stated
-      grant as already PER-YEAR (annual refresh / annualized value).
-      Set equityTotal = stated_grant and OMIT equityVestingYears. Mention
-      "annual grant (vesting period not stated)" in note.
+- FIRST decide if the grant is ONE-TIME or ANNUAL — this determines the math:
+  • ONE-TIME (default assumption): titled "On-Hire", "Sign-on", "Joining",
+    "New-Hire", "Initial", "One-time", or "Welcome" Stock Award, OR a plain
+    "Stock Award / RSU Grant" with no "annual/yearly/refresh" wording. These
+    are a single lump grant that vests over MULTIPLE years.
+  • ANNUAL (only when explicit): the letter literally calls it an "Annual
+    Stock Award", "annual refresh", "yearly grant", or "per-year" award.
+- Convert the stated grant to equityTotal (per-year) by these cases:
+  (a) Vesting period EXPLICITLY stated ("vests over 4 years", "16 quarterly
+      installments", "3-year cliff vest"): set equityVestingYears to that
+      number and equityTotal = stated_grant / equityVestingYears.
+  (b) ONE-TIME grant with NO explicit period — including when the schedule is
+      deferred to a "stock plan", "company policy", "plan terms and
+      conditions", or just says "vests"/"subject to vesting": DEFAULT to
+      equityVestingYears = 4 and equityTotal = stated_grant / 4. Add
+      "assumed 4yr vesting (schedule per stock plan)" to note. Do NOT treat a
+      one-time grant as a per-year amount.
+  (c) ANNUAL/refresh grant (per the explicit wording above): treat the stated
+      grant as already PER-YEAR. Set equityTotal = stated_grant and OMIT
+      equityVestingYears. Mention "annual grant" in note.
 - A "one year cliff" or "starts vesting after one year" is NOT a vesting
   period — it's just a cliff before the first vest. Do not infer 1yr vest.
 - If grant currency differs from base, set "equityCurrency" (don't convert).
