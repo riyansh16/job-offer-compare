@@ -1,5 +1,4 @@
 import OpenAI from 'openai';
-import { GoogleGenAI } from '@google/genai';
 import { extractText, getDocumentProxy } from 'unpdf';
 
 /**
@@ -142,23 +141,6 @@ const ALLOWED_MIME = new Set([
   'image/webp',
 ]);
 
-/**
- * Collect every configured Gemini API key in priority order.
- * Supports `GEMINI_API_KEY` (primary) plus numbered fallbacks
- * `GEMINI_API_KEY_2`..`GEMINI_API_KEY_10`. Mirrors the rotation pattern in
- * src/lib/providers/llmRatings.ts so a per-minute throttle or daily-quota hit
- * on the primary key falls through cleanly to a backup key.
- */
-function collectGeminiKeys(): string[] {
-  const raw: (string | undefined)[] = [process.env.GEMINI_API_KEY];
-  for (let i = 2; i <= 10; i++) raw.push(process.env[`GEMINI_API_KEY_${i}`]);
-  const keys = raw
-    .map((k) => k?.trim())
-    .filter((k): k is string => !!k && k.length > 0);
-  // Dedupe — someone might paste the same key in two slots.
-  return [...new Set(keys)];
-}
-
 export interface ExtractError {
   ok: false;
   status: number;
@@ -174,8 +156,15 @@ export type ExtractResult = ExtractSuccess | ExtractError;
 
 /**
  * Extract structured offer fields from an uploaded file.
- * Prefers Gemini (handles PDF + images natively); falls back to Azure OpenAI
- * / GitHub Models vision for images only.
+ * Uploads are handled by Azure OpenAI ONLY:
+ *   - PDFs:   text is extracted locally (unpdf) and sent to the chat model.
+ *   - Images: sent to the vision model.
+ * Gemini is intentionally NOT used for uploads — the free Gemini API
+ * geo-blocks our Azure host region ("User location is not supported"), so it
+ * can never succeed for a user upload in production and only adds latency.
+ * Gemini remains the provider for the ratings refresh cron
+ * (src/lib/providers/llmRatings.ts), which runs from GitHub Actions where it
+ * isn't geo-blocked.
  */
 export async function extractOfferFromFile(
   buffer: Buffer,
@@ -196,119 +185,67 @@ export async function extractOfferFromFile(
     };
   }
 
-  // Build the candidate provider chain.
-  //  - Images: Gemini (native) then Azure OpenAI vision.
-  //  - PDFs: Gemini handles them natively, BUT the free Gemini API geo-blocks
-  //    some server regions ("User location is not supported"), which is the
-  //    case for our Azure host. So for PDFs we FIRST try a region-independent
-  //    path — extract the text locally (unpdf) and send it to Azure OpenAI —
-  //    then fall back to Gemini's native PDF handling (works in dev / other
-  //    regions, and for the rare text-less scanned PDF where local extraction
-  //    yields nothing).
-  // Multiple Gemini API keys (GEMINI_API_KEY + _2.._10) let one upload survive
-  // per-minute rate limits / daily-quota exhaustion. Same pattern as
-  // src/lib/providers/llmRatings.ts.
+  // Uploads run on Azure OpenAI only (Gemini is geo-blocked from our host —
+  // see the function doc above). PDFs: extract text locally, then send to the
+  // chat model. Images: send to the vision model.
   const isPdf = mimeType === 'application/pdf';
   const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT?.trim();
   const azureKey = process.env.AZURE_OPENAI_API_KEY?.trim();
-  const azureConfigured = Boolean(azureEndpoint && azureKey);
-  const candidates: Array<() => Promise<ExtractResult | null> | null> = [];
 
-  // PDF → text → Azure OpenAI, tried first so prod doesn't wait on every
-  // geo-blocked Gemini key before falling through.
-  if (isPdf && azureConfigured) {
-    candidates.push(() => extractPdfTextThenAzure(buffer, azureEndpoint!, azureKey!));
-  }
-
-  for (const key of collectGeminiKeys()) {
-    candidates.push(() => extractWithGemini(buffer, mimeType, key));
-  }
-
-  if (!isPdf && azureConfigured) {
-    candidates.push(() => extractWithAzureOpenAI(buffer, mimeType, azureEndpoint!, azureKey!));
-  }
-
-  if (candidates.length === 0) {
+  if (!azureEndpoint || !azureKey) {
     return {
       ok: false,
       status: 503,
-      message: isPdf
-        ? 'PDF parsing requires an AI provider. Set GEMINI_API_KEY or AZURE_OPENAI_* in your environment, or upload a screenshot/photo of the offer instead.'
-        : 'No AI provider configured. Set GEMINI_API_KEY (recommended) or AZURE_OPENAI_* for image uploads.',
+      message: 'AI extraction is not configured. Please enter the offer details manually.',
     };
   }
 
+  const candidates: Array<() => Promise<ExtractResult | null>> = isPdf
+    ? [() => extractPdfTextThenAzure(buffer, azureEndpoint, azureKey)]
+    : [() => extractWithAzureOpenAI(buffer, mimeType, azureEndpoint, azureKey)];
+
   let lastError: unknown = null;
-  let allRateLimited = true;
+  let sawError = false;
+  let rateLimited = false;
   for (const tryProvider of candidates) {
     try {
       const result = await tryProvider();
       if (result) return result;
     } catch (err) {
+      sawError = true;
       lastError = err;
-      const status = (err as { status?: number })?.status;
-      if (status !== 429) {
-        allRateLimited = false;
-        console.warn('[extract] provider failed, trying next:', err);
+      if ((err as { status?: number })?.status === 429) {
+        rateLimited = true;
+        console.info('[extract] provider rate-limited');
       } else {
-        // 429 is expected on free-tier rate limits / daily quotas — don't
-        // log as a scary warning, just rotate to the next key/provider.
-        console.info('[extract] provider rate-limited, rotating');
+        console.warn('[extract] provider failed:', err);
       }
     }
   }
 
-  if (lastError) {
-    // Log the real provider error (e.g. Gemini "User location is not
-    // supported", Azure deployment issues) for diagnostics — never surface
-    // raw provider/JSON messages to the end user.
-    console.error('[extract] all providers failed:', lastError);
+  // No candidate returned a result.
+  if (!sawError) {
+    // The provider ran without throwing but produced nothing — for a PDF this
+    // means no extractable text (a scanned / image-only document).
+    return {
+      ok: false,
+      status: 422,
+      message: isPdf
+        ? "We couldn't read text from that PDF — it may be a scan. Please upload a clear screenshot/photo of the offer, or enter the details manually."
+        : "We couldn't read that file automatically. Please try a clearer image, or enter the details manually.",
+    };
   }
 
+  // Log the real provider error for diagnostics — never surface raw provider
+  // messages (e.g. Azure deployment errors) to the end user.
+  console.error('[extract] extraction failed:', lastError);
   return {
     ok: false,
-    status: allRateLimited ? 429 : 502,
-    message: allRateLimited
+    status: rateLimited ? 429 : 502,
+    message: rateLimited
       ? 'AI is busy right now. Please wait a minute and try again.'
       : "We couldn't read that file automatically. Please try a clear screenshot/photo of the offer, or enter the details manually.",
   };
-}
-
-async function extractWithGemini(
-  buffer: Buffer,
-  mimeType: string,
-  apiKey: string,
-): Promise<ExtractResult> {
-  const ai = new GoogleGenAI({ apiKey });
-  const model = process.env.AI_MODEL?.toLowerCase().startsWith('gemini')
-    ? process.env.AI_MODEL!
-    : 'gemini-2.5-flash';
-
-  const response = await ai.models.generateContent({
-    model,
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          {
-            inlineData: {
-              mimeType,
-              data: buffer.toString('base64'),
-            },
-          },
-          { text: 'Extract the offer fields per the system schema. Return JSON only.' },
-        ],
-      },
-    ],
-    config: {
-      systemInstruction: SYSTEM_PROMPT,
-      temperature: 0.05,
-      responseMimeType: 'application/json',
-    },
-  });
-
-  const text = response.text ?? '';
-  return parseJsonResult(text);
 }
 
 async function extractWithAzureOpenAI(
@@ -338,8 +275,8 @@ const MAX_PDF_TEXT_CHARS = 60_000;
 /**
  * Region-independent PDF path: pull the text out of the PDF locally (unpdf,
  * no network) and send it to Azure OpenAI. Returns `null` when the PDF has no
- * extractable text (image-only / scanned) so the caller falls through to the
- * next provider (Gemini vision) or the generic "upload a screenshot" message.
+ * extractable text (image-only / scanned) so the caller surfaces the generic
+ * "upload a screenshot" message.
  */
 async function extractPdfTextThenAzure(
   buffer: Buffer,
@@ -352,7 +289,7 @@ async function extractPdfTextThenAzure(
     const res = await extractText(pdf, { mergePages: true });
     text = Array.isArray(res.text) ? res.text.join('\n') : res.text;
   } catch (err) {
-    // Corrupt/encrypted PDF — let the chain try Gemini next.
+    // Corrupt/encrypted PDF — surface the generic "try a screenshot" message.
     console.warn('[extract] pdf text extraction failed:', err);
     return null;
   }
