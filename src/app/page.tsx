@@ -1,11 +1,15 @@
 import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
-import { auth } from '@/lib/auth';
+import { HeroCtas, BottomCta } from '@/components/HomeCtas';
 
-export default async function Home() {
-  const session = await auth();
-  const isSignedIn = Boolean(session?.user);
+// Fully static, CDN-cached marketing page. The only auth-dependent pieces
+// (the hero + bottom CTA buttons) resolve client-side via HomeCtas so this
+// route never invokes the serverless function — see src/components/HomeCtas.tsx
+// for the full rationale. force-static locks the win in and fails the build
+// loudly if a dynamic API (cookies/headers/auth) is reintroduced here.
+export const dynamic = 'force-static';
 
+export default function Home() {
   return (
     <div className="space-y-16 py-12">
       {/* Hero */}
@@ -19,19 +23,8 @@ export default async function Home() {
           designation and years of experience. AI verdicts cite the data
           instead of making it up.
         </p>
-        <div className="flex justify-center gap-3 pt-4">
-          {isSignedIn ? (
-            <>
-              <Link href="/dashboard" className="btn-primary">Go to dashboard</Link>
-              <Link href="/compare/new" className="btn-outline">New comparison</Link>
-            </>
-          ) : (
-            <>
-              <Link href="/auth/signup" className="btn-primary">Get started</Link>
-              <Link href="/companies" className="btn-outline">Browse companies</Link>
-              <Link href="/auth/signin" className="btn-ghost">Sign in</Link>
-            </>
-          )}
+        <div className="flex min-h-[38px] justify-center gap-3 pt-4">
+          <HeroCtas />
         </div>
       </section>
 
@@ -155,15 +148,7 @@ export default async function Home() {
         <p className="mb-4 text-sm text-[rgb(var(--muted-foreground))]">
           Add your offers in 5 minutes. Walk into the negotiation already knowing the answer.
         </p>
-        {isSignedIn ? (
-          <Link href="/offers/new" className="btn-primary">
-            Add an offer
-          </Link>
-        ) : (
-          <Link href="/auth/signup" className="btn-primary">
-            Create your account
-          </Link>
-        )}
+        <BottomCta />
       </section>
 
       {/* Data sources */}
