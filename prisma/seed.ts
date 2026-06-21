@@ -534,6 +534,12 @@ async function main() {
       hqLocation: 'Noida, IN', industry: 'EdTech', size: '7000+' },
     { name: 'Honasa (Mamaearth)', slug: 'honasa', tickerSymbol: 'HONASA.NS', isPublic: true,
       hqLocation: 'Gurgaon, IN', industry: 'Consumer Brands', size: '1100+' },
+    // Zeta Suite (Bhavin Turakhia's banking-tech unicorn). Keep slug 'zeta'
+    // so existing /companies/zeta URLs / inbound SEO don't break -- the US
+    // AdTech Zeta Global (NYSE: ZETA) is not the brand SWE candidates here
+    // mean when they type "Zeta" on an offer letter.
+    { name: 'Zeta', slug: 'zeta', tickerSymbol: null, isPublic: false,
+      hqLocation: 'Bangalore, IN', industry: 'Banking Tech / FinTech', size: '1700+' },
 
     // --- Indian ad-tech / consumer internet / unicorns ---
     { name: 'InMobi', slug: 'inmobi', tickerSymbol: null, isPublic: false,
@@ -646,8 +652,6 @@ async function main() {
       hqLocation: 'Purchase, NY', industry: 'Telehealth', size: '5500+' },
 
     // --- AdTech / marketing (public) ---
-    { name: 'Zeta', slug: 'zeta', tickerSymbol: 'ZETA', isPublic: true,
-      hqLocation: 'New York, NY', industry: 'Marketing / AdTech', size: '2200+' },
     { name: 'The Trade Desk', slug: 'the-trade-desk', tickerSymbol: 'TTD', isPublic: true,
       hqLocation: 'Ventura, CA', industry: 'Programmatic AdTech', size: '3400+' },
     { name: 'AppLovin', slug: 'applovin', tickerSymbol: 'APP', isPublic: true,
