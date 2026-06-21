@@ -131,6 +131,7 @@ If you have a personal domain (e.g. `riyansh.dev`), just point a subdomain like 
     DATABASE_URL=<your prod Postgres URL>
     AUTH_SECRET=<openssl rand -base64 32>
     AUTH_URL=<your eventual prod URL, set later>
+  NEXT_PUBLIC_SITE_URL=<your eventual prod URL, set later>
     AZURE_OPENAI_ENDPOINT=https://job-offer-compare-ai.openai.azure.com/
     AZURE_OPENAI_API_KEY=<rotate first!>
     AZURE_OPENAI_DEPLOYMENT=gpt-4.1-mini
@@ -156,6 +157,7 @@ Assuming you bought `joboffercompare.in` from Porkbun/Cloudflare:
 6. Wait 5-10 min for DNS propagation
 7. Azure auto-provisions a free SSL cert via Let's Encrypt
 8. Update `AUTH_URL` env var in Azure SWA to `https://joboffercompare.in`
+9. Update `NEXT_PUBLIC_SITE_URL` env var in Azure SWA to `https://joboffercompare.in`
 
 ### Phase 3 — Daily cron (~10 min)
 

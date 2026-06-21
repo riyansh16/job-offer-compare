@@ -1,13 +1,22 @@
 import type { MetadataRoute } from 'next';
+import { unstable_cache } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { siteUrl } from '@/lib/site';
 
-// Daily ISR. The previous combo of `revalidate = 86400` + `force-dynamic`
-// was self-defeating -- force-dynamic disables the ISR cache, so the
-// sitemap was actually re-querying Postgres on every crawler hit (and
-// crawlers hit /sitemap.xml a lot). With force-dynamic dropped, the
-// try/catch below still handles build-time prerender without DATABASE_URL.
-export const revalidate = 86400;
+// Build-time prerender can run without DATABASE_URL on SWA. Keep the route
+// runtime-dynamic so crawlers get company URLs from the live DB, while
+// caching the slug query for a day to avoid DB hits on every sitemap request.
+export const dynamic = 'force-dynamic';
+
+const getCompanySlugs = unstable_cache(
+  async () =>
+    prisma.company.findMany({
+      select: { slug: true },
+      orderBy: { name: 'asc' },
+    }),
+  ['sitemap-company-slugs'],
+  { revalidate: 86400 }
+);
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
@@ -20,14 +29,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   let companies: { slug: string }[] = [];
   try {
-    companies = await prisma.company.findMany({
-      select: { slug: true },
-      orderBy: { name: 'asc' },
-    });
+    companies = await getCompanySlugs();
   } catch {
-    // DB unreachable (e.g. build-time prerender without DATABASE_URL). Ship
-    // the static entries so the sitemap still exists; the next regeneration
-    // after revalidate elapses will pick up the per-company URLs.
+    // DB unreachable. Ship static entries so /sitemap.xml always works.
     return staticEntries;
   }
 
