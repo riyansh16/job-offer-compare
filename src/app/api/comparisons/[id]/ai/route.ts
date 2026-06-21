@@ -37,11 +37,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
 
   const provider = getAiProvider();
   if (!provider) {
+    // The detailed "add GEMINI_API_KEY..." hint is for operators, not end
+    // users — keep it in the server logs and return a neutral message.
+    console.warn('[ai] provider unavailable: AI env not configured');
     return NextResponse.json(
-      {
-        error:
-          'AI is not configured. Add GEMINI_API_KEY (free) to .env.local — get a key at https://aistudio.google.com/apikey',
-      },
+      { error: 'AI insights are temporarily unavailable. Please try again later.' },
       { status: 503 },
     );
   }
@@ -50,7 +50,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   try {
     snapshot = JSON.parse(comparison.snapshotJson) as ComparisonResult;
   } catch {
-    return NextResponse.json({ error: 'Corrupt comparison snapshot' }, { status: 500 });
+    console.error('[ai] corrupt comparison snapshot for', id);
+    return NextResponse.json(
+      { error: 'Something went wrong generating this insight. Please try again.' },
+      { status: 500 },
+    );
   }
 
   const spec = buildPrompt(kind, { comparison: snapshot });
@@ -91,8 +95,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         ]);
         controller.close();
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Unknown error';
-        controller.enqueue(encoder.encode(`\n\n[AI error: ${msg}]`));
+        // Log the real provider/runtime error for diagnostics, but never
+        // stream it to the client — upstream messages (e.g. Azure's "deployment
+        // does not exist") are internal and alarming to end users.
+        console.error('[ai] generation failed for comparison', id, err);
+        controller.enqueue(
+          encoder.encode(
+            '\n\n_AI insight could not be generated right now. Please try again._',
+          ),
+        );
         controller.close();
       }
     },

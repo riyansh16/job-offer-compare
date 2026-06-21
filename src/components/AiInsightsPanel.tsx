@@ -15,6 +15,9 @@ const KINDS: { kind: AiInsightKind; label: string; description: string }[] = [
   { kind: 'Questions', label: 'Recruiter questions', description: 'Smart questions per company.' },
 ];
 
+// Minimum gap between user-initiated regenerates of the same insight.
+const REGEN_COOLDOWN_MS = 10_000;
+
 export function AiInsightsPanel({ comparisonId }: { comparisonId: string }) {
   const [open, setOpen] = useState<Record<AiInsightKind, boolean>>({
     Verdict: true,
@@ -40,6 +43,24 @@ export function AiInsightsPanel({ comparisonId }: { comparisonId: string }) {
     Negotiation: false,
     Questions: false,
   });
+  // Epoch-ms per kind until which regenerate is disabled (0 = no cooldown).
+  // Each regenerate is a real LLM call, so we throttle re-rolls to once per
+  // REGEN_COOLDOWN_MS to blunt accidental double-clicks / hammering without a
+  // full server-side rate limiter (deferred to v2).
+  const [cooldownUntil, setCooldownUntil] = useState<Record<AiInsightKind, number>>({
+    Verdict: 0,
+    Tradeoffs: 0,
+    Negotiation: 0,
+    Questions: 0,
+  });
+  // Ticks while any cooldown is active so the countdown label updates, then
+  // self-terminates (the effect re-runs on `now` and bails when none remain).
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!Object.values(cooldownUntil).some((t) => t > now)) return;
+    const id = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(id);
+  }, [cooldownUntil, now]);
 
   // Auto-load Verdict on mount.
   useEffect(() => {
@@ -80,13 +101,18 @@ export function AiInsightsPanel({ comparisonId }: { comparisonId: string }) {
           setContent((c) => ({ ...c, [kind]: buf }));
         }
       }
-    } catch (e) {
+    } catch {
       setErrors((er) => ({
         ...er,
-        [kind]: e instanceof Error ? e.message : 'Unknown error',
+        [kind]: 'Could not reach the AI service. Please try again.',
       }));
     } finally {
       setLoading((l) => ({ ...l, [kind]: false }));
+      // Start the cooldown only for user-initiated re-rolls (force), never the
+      // initial auto-load, so the first view is instant.
+      if (force) {
+        setCooldownUntil((c) => ({ ...c, [kind]: Date.now() + REGEN_COOLDOWN_MS }));
+      }
     }
   }
 
@@ -110,6 +136,8 @@ export function AiInsightsPanel({ comparisonId }: { comparisonId: string }) {
           const errorMsg = errors[kind];
           const hasContent = !!content[kind];
           const showSkeleton = isLoading && !hasContent;
+          const cdRemaining = Math.max(0, Math.ceil((cooldownUntil[kind] - now) / 1000));
+          const onCooldown = cdRemaining > 0;
           return (
             <div key={kind} className="rounded-lg border">
               <button
@@ -137,9 +165,20 @@ export function AiInsightsPanel({ comparisonId }: { comparisonId: string }) {
                   {showSkeleton ? (
                     <SkeletonLines count={4} />
                   ) : hasContent ? (
-                    <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content[kind]}</ReactMarkdown>
-                    </div>
+                    <>
+                      <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content[kind]}</ReactMarkdown>
+                      </div>
+                      <button
+                        onClick={() => fetchInsight(kind, true)}
+                        disabled={isLoading || onCooldown}
+                        className="btn-outline mt-3 text-xs"
+                        title="Generate a fresh take on this insight"
+                      >
+                        <RefreshCw size={12} aria-hidden />
+                        {onCooldown ? `Regenerate (${cdRemaining}s)` : 'Regenerate'}
+                      </button>
+                    </>
                   ) : !errorMsg ? (
                     <p className="text-sm text-[rgb(var(--muted-foreground))]">
                       Loading…
@@ -151,11 +190,11 @@ export function AiInsightsPanel({ comparisonId }: { comparisonId: string }) {
                       <p className="text-[rgb(var(--danger))]">AI error: {errorMsg}</p>
                       <button
                         onClick={() => fetchInsight(kind, true)}
-                        disabled={isLoading}
+                        disabled={isLoading || onCooldown}
                         className="btn-outline mt-2 text-xs"
                       >
                         <RefreshCw size={12} aria-hidden />
-                        Retry
+                        {onCooldown ? `Retry (${cdRemaining}s)` : 'Retry'}
                       </button>
                     </div>
                   )}
