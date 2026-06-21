@@ -15,6 +15,11 @@ Rules:
 - Money metrics are: salary, bonus, equity, signOn, benefits, annualValueInr.
   All other metric "raw" values are 0–100 scores or stars (NOT money). Never
   prefix non-money metrics with ₹.
+- Do NOT compute monetary differences yourself. For any INR gap between an offer
+  and the #1 offer, cite only the precomputed "gapToLeaderInr" values. A "match X"
+  target must equal that offer's raw value from the JSON, and any increase you
+  propose must equal the corresponding gap. Never cite two different ₹ gap figures
+  for the same metric.
 - Use markdown bullets. Keep under 200 words unless asked otherwise.
 - No moralizing, no disclaimers, no emoji.`;
 
@@ -24,18 +29,38 @@ interface PromptInput {
 
 // Metric keys whose `raw` value is in INR. Everything else (workMode, growth,
 // reviewWLB, etc.) is a 0..100 score or a star value, NOT money.
-const MONEY_METRICS = new Set(['salary', 'bonus', 'equity', 'signOn', 'benefits']);
+const MONEY_METRIC_KEYS = ['salary', 'bonus', 'equity', 'signOn', 'benefits'] as const;
+const MONEY_METRICS = new Set<string>(MONEY_METRIC_KEYS);
 
 function snapshot(input: PromptInput): string {
   const { comparison } = input;
+  const sorted = comparison.results.slice().sort((a, b) => a.rank - b.rank);
+  // The #1 offer is the reference every money gap is measured against.
+  const leader = sorted[0];
   const slim = {
     weights: comparison.weights,
     equityGrowthAssumption: `${comparison.equityGrowthPct.toFixed(1)}%/yr`,
     currency: 'INR',
-    offers: comparison.results
-      .slice()
-      .sort((a, b) => a.rank - b.rank)
-      .map((r) => ({
+    leader: leader?.companyName ?? null,
+    offers: sorted.map((r) => {
+      const isLeader = r.offerId === leader?.offerId;
+      // Precompute every money gap vs the #1 offer so the model never does its
+      // own arithmetic (which produced self-contradictory deltas like "increase
+      // base by ₹10L, narrowing the ₹1L gap"). Positive = this offer trails the
+      // leader by that many INR; add it to match the leader. Null for the leader.
+      const gapToLeaderInr =
+        leader && !isLeader
+          ? {
+              annualValueInr: Math.round(leader.totalAnnualValue - r.totalAnnualValue),
+              ...Object.fromEntries(
+                MONEY_METRIC_KEYS.map((k) => [
+                  k,
+                  Math.round(leader.metrics[k].raw - r.metrics[k].raw),
+                ]),
+              ),
+            }
+          : null;
+      return {
         company: r.companyName,
         title: r.title,
         rank: r.rank,
@@ -60,7 +85,10 @@ function snapshot(input: PromptInput): string {
             ];
           }),
         ),
-      })),
+        // Money deltas vs the #1 offer (null for the leader itself).
+        gapToLeaderInr,
+      };
+    }),
   };
   return JSON.stringify(slim, null, 2);
 }
@@ -101,9 +129,12 @@ export function buildPrompt(kind: AiInsightKind, input: PromptInput): PromptSpec
         system: SYSTEM,
         user:
           base +
-          'Suggest 4-6 negotiation talking points for the lower-ranked offers based on ' +
-          'specific gaps vs the leader (e.g. "Ask Offer X to match Offer Y on base salary — ₹4L gap"). ' +
-          'All money in INR (₹L / ₹Cr). Use bullet format with concrete asks.',
+          'Suggest 4-6 negotiation talking points for the lower-ranked offers. For each, pick the ' +
+          'metrics where that offer has the largest positive "gapToLeaderInr" and frame a concrete ' +
+          "ask to close exactly that amount — e.g. \"Ask {offer} to raise base by ₹4L to match " +
+          "{leader}'s ₹37L\". The increase you cite MUST equal that metric's gapToLeaderInr and the " +
+          '"to match" figure MUST equal the leader\'s raw value for that metric. Do not invent, ' +
+          'recompute, or append any other gap number. All money in INR (₹L / ₹Cr). Bullet format.',
         maxTokens: 500,
       };
     case 'Questions':
