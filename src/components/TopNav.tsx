@@ -67,7 +67,9 @@ export async function TopNav() {
 
 /**
  * Shows the user's avatar (Google profile picture if available, otherwise a
- * coloured circle with their initial). Email shown next to it on `lg+` only.
+ * coloured circle with their initial). Display name shown next to it on `lg+`
+ * only (falls back to email when the account has no name); the full email is
+ * available on hover via the title attribute.
  * Plain `<img>` keeps `next.config.mjs` simpler — no remotePatterns needed
  * for a 28px image hosted on Google's CDN.
  */
@@ -80,10 +82,10 @@ function UserBadge({
   email: string | null;
   image: string | null;
 }) {
-  const label = name ?? email ?? 'Account';
-  const initial = (name?.trim()?.[0] ?? email?.trim()?.[0] ?? '?').toUpperCase();
+  const displayName = name?.trim() || email?.trim() || 'Account';
+  const initial = (displayName[0] ?? '?').toUpperCase();
   return (
-    <span className="flex items-center gap-2" title={label}>
+    <span className="flex items-center gap-2" title={email ?? displayName}>
       {image ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -100,10 +102,8 @@ function UserBadge({
           {initial}
         </span>
       )}
-      <span className="sr-only">Signed in as {label}</span>
-      {email && (
-        <span className="hidden text-[rgb(var(--muted-foreground))] lg:inline">{email}</span>
-      )}
+      <span className="sr-only">Signed in as {displayName}</span>
+      <span className="hidden text-[rgb(var(--muted-foreground))] lg:inline">{displayName}</span>
     </span>
   );
 }
