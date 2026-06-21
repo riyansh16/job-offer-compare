@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
+import { extractText, getDocumentProxy } from 'unpdf';
 
 /**
  * Fields we attempt to pull out of an uploaded offer letter.
@@ -184,24 +185,36 @@ export async function extractOfferFromFile(
     };
   }
 
-  // Build the candidate provider chain. Gemini is the only provider that
-  // handles PDFs natively; Azure OpenAI is images-only.
-  // For Gemini we accept multiple API keys (GEMINI_API_KEY + _2.._10) so a
-  // single user upload can survive per-minute rate limits or daily-quota
-  // exhaustion on the primary key. Same pattern as src/lib/providers/llmRatings.ts.
+  // Build the candidate provider chain.
+  //  - Images: Gemini (native) then Azure OpenAI vision.
+  //  - PDFs: Gemini handles them natively, BUT the free Gemini API geo-blocks
+  //    some server regions ("User location is not supported"), which is the
+  //    case for our Azure host. So for PDFs we FIRST try a region-independent
+  //    path — extract the text locally (unpdf) and send it to Azure OpenAI —
+  //    then fall back to Gemini's native PDF handling (works in dev / other
+  //    regions, and for the rare text-less scanned PDF where local extraction
+  //    yields nothing).
+  // Multiple Gemini API keys (GEMINI_API_KEY + _2.._10) let one upload survive
+  // per-minute rate limits / daily-quota exhaustion. Same pattern as
+  // src/lib/providers/llmRatings.ts.
   const isPdf = mimeType === 'application/pdf';
-  const candidates: Array<() => Promise<ExtractResult> | null> = [];
+  const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT?.trim();
+  const azureKey = process.env.AZURE_OPENAI_API_KEY?.trim();
+  const azureConfigured = Boolean(azureEndpoint && azureKey);
+  const candidates: Array<() => Promise<ExtractResult | null> | null> = [];
+
+  // PDF → text → Azure OpenAI, tried first so prod doesn't wait on every
+  // geo-blocked Gemini key before falling through.
+  if (isPdf && azureConfigured) {
+    candidates.push(() => extractPdfTextThenAzure(buffer, azureEndpoint!, azureKey!));
+  }
 
   for (const key of collectGeminiKeys()) {
     candidates.push(() => extractWithGemini(buffer, mimeType, key));
   }
 
-  if (!isPdf) {
-    const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
-    const azureKey = process.env.AZURE_OPENAI_API_KEY;
-    if (azureEndpoint && azureKey) {
-      candidates.push(() => extractWithAzureOpenAI(buffer, mimeType, azureEndpoint, azureKey));
-    }
+  if (!isPdf && azureConfigured) {
+    candidates.push(() => extractWithAzureOpenAI(buffer, mimeType, azureEndpoint!, azureKey!));
   }
 
   if (candidates.length === 0) {
@@ -209,7 +222,7 @@ export async function extractOfferFromFile(
       ok: false,
       status: 503,
       message: isPdf
-        ? 'PDF parsing requires GEMINI_API_KEY. Set it in your environment, or upload a screenshot/photo of the offer instead.'
+        ? 'PDF parsing requires an AI provider. Set GEMINI_API_KEY or AZURE_OPENAI_* in your environment, or upload a screenshot/photo of the offer instead.'
         : 'No AI provider configured. Set GEMINI_API_KEY (recommended) or AZURE_OPENAI_* for image uploads.',
     };
   }
@@ -234,13 +247,19 @@ export async function extractOfferFromFile(
     }
   }
 
+  if (lastError) {
+    // Log the real provider error (e.g. Gemini "User location is not
+    // supported", Azure deployment issues) for diagnostics — never surface
+    // raw provider/JSON messages to the end user.
+    console.error('[extract] all providers failed:', lastError);
+  }
+
   return {
     ok: false,
     status: allRateLimited ? 429 : 502,
     message: allRateLimited
-      ? 'AI rate limit hit on every configured key. Try again in a minute, or add another GEMINI_API_KEY_2..10 to your environment.'
-      : 'All configured AI providers failed. ' +
-        (lastError instanceof Error ? lastError.message : 'Try again or use a different file.'),
+      ? 'AI is busy right now. Please wait a minute and try again.'
+      : "We couldn't read that file automatically. Please try a clear screenshot/photo of the offer, or enter the details manually.",
   };
 }
 
@@ -297,6 +316,70 @@ async function extractWithAzureOpenAI(
     defaultHeaders: { 'api-key': apiKey },
   });
   return openAiVisionExtract(client, deployment, buffer, mimeType);
+}
+
+/** Min chars of extracted PDF text to consider it a real (non-scanned) PDF. */
+const MIN_PDF_TEXT_CHARS = 40;
+/** Cap the text sent to the LLM. Offer terms are always near the top; this
+ *  keeps token cost bounded for long multi-page contracts. */
+const MAX_PDF_TEXT_CHARS = 60_000;
+
+/**
+ * Region-independent PDF path: pull the text out of the PDF locally (unpdf,
+ * no network) and send it to Azure OpenAI. Returns `null` when the PDF has no
+ * extractable text (image-only / scanned) so the caller falls through to the
+ * next provider (Gemini vision) or the generic "upload a screenshot" message.
+ */
+async function extractPdfTextThenAzure(
+  buffer: Buffer,
+  endpoint: string,
+  apiKey: string,
+): Promise<ExtractResult | null> {
+  let text: string;
+  try {
+    const pdf = await getDocumentProxy(new Uint8Array(buffer));
+    const res = await extractText(pdf, { mergePages: true });
+    text = Array.isArray(res.text) ? res.text.join('\n') : res.text;
+  } catch (err) {
+    // Corrupt/encrypted PDF — let the chain try Gemini next.
+    console.warn('[extract] pdf text extraction failed:', err);
+    return null;
+  }
+
+  const trimmed = text.trim();
+  if (trimmed.length < MIN_PDF_TEXT_CHARS) return null; // scanned/image-only
+
+  return extractWithAzureOpenAIText(trimmed.slice(0, MAX_PDF_TEXT_CHARS), endpoint, apiKey);
+}
+
+async function extractWithAzureOpenAIText(
+  documentText: string,
+  endpoint: string,
+  apiKey: string,
+): Promise<ExtractResult> {
+  const deployment =
+    process.env.AZURE_OPENAI_DEPLOYMENT?.trim() ?? process.env.AI_MODEL?.trim() ?? 'gpt-4o-mini';
+  const apiVersion = process.env.AZURE_OPENAI_API_VERSION?.trim() ?? '2024-10-21';
+  const client = new OpenAI({
+    apiKey,
+    baseURL: `${endpoint.replace(/\/$/, '')}/openai/deployments/${deployment}`,
+    defaultQuery: { 'api-version': apiVersion },
+    defaultHeaders: { 'api-key': apiKey },
+  });
+  const completion = await client.chat.completions.create({
+    model: deployment,
+    temperature: 0.05,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      {
+        role: 'user',
+        content: `Extract the offer fields per the system schema from this offer letter text. Return JSON only.\n\n--- OFFER LETTER TEXT ---\n${documentText}`,
+      },
+    ],
+  });
+  const text = completion.choices[0]?.message?.content ?? '';
+  return parseJsonResult(text);
 }
 
 async function openAiVisionExtract(
