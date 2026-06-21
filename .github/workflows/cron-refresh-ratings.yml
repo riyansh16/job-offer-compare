@@ -5,18 +5,21 @@ name: Refresh ratings (daily, small batch)
 # We CANNOT do a bulk monthly dump because the 9 Gemini keys are shared with
 # user-facing PDF / image offer extraction (gemini-2.5-flash). A 238-call
 # burst would either trip per-minute rate limits or starve a user upload
-# happening at the same time.
+# happening at the same time. The daily slices below are tiny (~15 calls,
+# throttled to ~4 RPM), so they coexist comfortably with user uploads.
 #
-# Instead: two small slices each day that cycle the catalog naturally.
-#   * Bulk slice: 10 stalest catalog rows with flash-lite (1000 RPD per key
-#     pool, separate from flash). Cycles all ~290 companies in ~29 days,
-#     burning <2% of the daily flash-lite quota.
-#   * Escalation slice: 5 stuck rows with flash (250 RPD per key pool,
-#     separate from flash-lite). Cycles the stuck pool in ~7 days, then
-#     idles until new companies get added. (Was gemini-2.5-pro until
-#     May 30, 2026 — pro is now paid-tier only on the Gemini API; free-
-#     tier projects get 0 RPD per `GenerateRequestsPerDayPerProjectPerModel-FreeTier`.
-#     Flash gives ~50% hit-rate vs pro's ~85% but stays free.)
+# Instead: two small slices each day that cycle the catalog naturally. BOTH
+# now use gemini-2.5-flash. flash-lite's ~22% Indeed-extraction hit-rate was
+# too low to be worth its separate quota pool, and pro (the old escalation
+# model, ~85%) went paid-tier-only on May 30, 2026 (free-tier projects get
+# 0 RPD per `GenerateRequestsPerDayPerProjectPerModel-FreeTier`). flash's
+# ~50% hit-rate is the best free option, and ~15 calls/day is <1% of the
+# 250 RPD/key flash pool (×9 keys ≈ 2250 RPD).
+#   * Bulk slice: 10 stalest catalog rows (flash). Cycles all ~310 companies
+#     in ~31 days, re-checking successes and filling fresh gaps.
+#   * Escalation slice: 5 oldest rows still missing a rating (flash),
+#     INCLUDING ones the give-up gate retired (--include-stuck → fc>=1), so
+#     the long-tail empties get re-tried instead of being stranded at fc>=2.
 # Total daily Gemini calls: ~15. Time on the runner: ~5 min.
 #
 # Required GitHub Actions secrets:
@@ -69,8 +72,15 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
 
-      - name: Bulk slice (flash-lite, ${{ env.BATCH_SIZE }} stalest)
+      # GEMINI_RATINGS_MODEL is read at module-load time by
+      # src/lib/providers/llmRatings.ts, so setting it on the step is enough to
+      # make the bulk slice use flash instead of the library default flash-lite.
+      - name: Bulk slice (flash, ${{ env.BATCH_SIZE }} stalest)
+        env:
+          GEMINI_RATINGS_MODEL: gemini-2.5-flash
         run: npx tsx scripts/refreshRatings.ts --batch-size=${{ env.BATCH_SIZE }} --interval-ms=14000
 
-      - name: Escalation slice (flash, ${{ env.ESCALATE_MAX }} oldest stuck)
-        run: npx tsx scripts/escalateMissingRatings.ts --model=gemini-2.5-flash --interval-ms=14000 --max=${{ env.ESCALATE_MAX }}
+      # --include-stuck broadens the candidate filter from fc==1 to fc>=1 so the
+      # rows the daily gate already gave up on (fc>=2) get re-tried with flash.
+      - name: Escalation slice (flash, ${{ env.ESCALATE_MAX }} oldest stuck incl. given-up)
+        run: npx tsx scripts/escalateMissingRatings.ts --model=gemini-2.5-flash --interval-ms=14000 --max=${{ env.ESCALATE_MAX }} --include-stuck
