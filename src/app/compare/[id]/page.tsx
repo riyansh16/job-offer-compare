@@ -124,24 +124,27 @@ export default async function ComparisonPage({ params }: { params: Promise<{ id:
         <DeleteComparisonButton id={c.id} />
       </header>
 
-      <div
-        className={`card text-sm ${
-          anyGrowthApplied
-            ? 'border-l-4 border-l-[rgb(var(--primary))] bg-[rgb(var(--primary))]/5'
-            : ''
-        }`}
-      >
-        <div className="font-medium">Equity-growth assumptions applied</div>
-        <div className="mt-1 text-[rgb(var(--muted-foreground))]">{growthSummary}</div>
-        {!anyGrowthApplied && (
-          <div className="mt-1 text-[11px] text-[rgb(var(--muted-foreground))]">
-            No growth applied — equity values were used as you entered them. Re-run a new
-            comparison to model stock-price growth.
+      <ComparisonResults
+        snapshot={snapshot}
+        afterVerdict={
+          <div
+            className={`card text-sm ${
+              anyGrowthApplied
+                ? 'border-l-4 border-l-[rgb(var(--primary))] bg-[rgb(var(--primary))]/5'
+                : ''
+            }`}
+          >
+            <div className="font-medium">Equity-growth assumptions applied</div>
+            <div className="mt-1 text-[rgb(var(--muted-foreground))]">{growthSummary}</div>
+            {!anyGrowthApplied && (
+              <div className="mt-1 text-[11px] text-[rgb(var(--muted-foreground))]">
+                No growth applied — equity values were used as you entered them. Re-run a new
+                comparison to model stock-price growth.
+              </div>
+            )}
           </div>
-        )}
-      </div>
-
-      <ComparisonResults snapshot={snapshot} />
+        }
+      />
 
       <LayoffSignals companies={layoffCompanies} />
 

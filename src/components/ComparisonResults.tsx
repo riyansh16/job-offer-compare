@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import {
   Legend,
   PolarAngleAxis,
@@ -15,7 +16,15 @@ import { formatMoney, formatPct } from '@/lib/utils';
 
 const COLORS = ['#4f46e5', '#10b981', '#ef4444', '#f59e0b', '#06b6d4', '#a855f7'];
 
-export function ComparisonResults({ snapshot }: { snapshot: ComparisonResult }) {
+export function ComparisonResults({
+  snapshot,
+  afterVerdict,
+}: {
+  snapshot: ComparisonResult;
+  /** Optional content rendered immediately below the Verdict card (e.g. the
+   *  equity-growth assumptions banner) so the verdict stays the hero. */
+  afterVerdict?: ReactNode;
+}) {
   const ranked = [...snapshot.results].sort((a, b) => a.rank - b.rank);
 
   // Detect snapshots saved before a metric-set change (e.g. PTO removed,
@@ -75,6 +84,8 @@ export function ComparisonResults({ snapshot }: { snapshot: ComparisonResult }) 
           ))}
         </ol>
       </section>
+
+      {afterVerdict}
 
       <section className="card">
         <h2 className="mb-3 font-semibold">Per-metric profile</h2>
