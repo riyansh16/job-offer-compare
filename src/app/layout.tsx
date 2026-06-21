@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { SessionProvider } from 'next-auth/react';
 import './globals.css';
 import { TopNav } from '@/components/TopNav';
 import { Footer } from '@/components/Footer';
@@ -105,14 +106,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body className="flex min-h-screen flex-col antialiased">
         <ThemeProvider>
-          <a href="#main" className="skip-link">
-            Skip to content
-          </a>
-          <TopNav />
-          <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
-            {children}
-          </main>
-          <Footer />
+          {/* SessionProvider resolves auth client-side so the shared navbar
+              stays correct on static, CDN-cached pages (e.g. the homepage)
+              without forcing those pages back into dynamic rendering. */}
+          <SessionProvider>
+            <a href="#main" className="skip-link">
+              Skip to content
+            </a>
+            <TopNav />
+            <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+              {children}
+            </main>
+            <Footer />
+          </SessionProvider>
           <AppToaster />
           <AppInsightsInit />
         </ThemeProvider>

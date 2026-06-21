@@ -1,14 +1,26 @@
+'use client';
+
 import Link from 'next/link';
-import { auth, signOut } from '@/lib/auth';
-import { isAdminEmail } from '@/lib/admin';
+import { useSession, signOut } from 'next-auth/react';
 import { NavLinks, type NavItem } from './NavLinks';
 import { ThemeToggle } from './ThemeToggle';
 import { Logo } from './Logo';
 
-export async function TopNav() {
-  const session = await auth();
-  const user = session?.user;
-  const isAdmin = isAdminEmail(user?.email);
+// Client-side navbar. Resolves the session in the browser via useSession so
+// the shared layout never calls auth() on the server — that would opt every
+// page (including the static, CDN-cached homepage) back into dynamic
+// rendering. The SessionProvider lives in src/app/layout.tsx.
+//
+// While the session is resolving we render a neutral placeholder (never the
+// signed-out controls) so a logged-in user is never briefly shown
+// "Sign in / Sign up". For anonymous visitors the session check returns
+// "unauthenticated" in ~100-400ms and the signed-out controls appear.
+export function TopNav() {
+  const { data: session, status } = useSession();
+  const user = session?.user as
+    | { name?: string | null; email?: string | null; image?: string | null; isAdmin?: boolean }
+    | undefined;
+  const isAdmin = Boolean(user?.isAdmin);
 
   const navItems: NavItem[] = user
     ? [
@@ -29,21 +41,27 @@ export async function TopNav() {
           <span>OfferLens</span>
         </Link>
         <div className="flex items-center gap-2 text-sm">
-          {user ? (
+          {status === 'loading' ? (
+            <>
+              <span
+                aria-hidden
+                className="h-8 w-28 animate-pulse rounded-md bg-[rgb(var(--muted))]"
+              />
+              <span className="sr-only">Loading account…</span>
+              <ThemeToggle />
+            </>
+          ) : user ? (
             <>
               <NavLinks items={navItems} />
               <UserBadge name={user.name ?? null} email={user.email ?? null} image={user.image ?? null} />
               <ThemeToggle />
-              <form
-                action={async () => {
-                  'use server';
-                  await signOut({ redirectTo: '/' });
-                }}
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => signOut({ callbackUrl: '/' })}
               >
-                <button type="submit" className="btn-outline">
-                  Sign out
-                </button>
-              </form>
+                Sign out
+              </button>
             </>
           ) : (
             <>

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { SessionProvider, useSession } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 
 /**
  * Auth-aware CTAs for the homepage, resolved client-side.
@@ -15,6 +15,8 @@ import { SessionProvider, useSession } from 'next-auth/react';
  * from the edge, while the buttons fill in once the browser's session check
  * (/api/auth/session) returns. For anonymous visitors that's ~100-400ms,
  * bridged by a skeleton placeholder so there's no layout shift.
+ *
+ * Session context comes from the single SessionProvider in src/app/layout.tsx.
  */
 
 // Button-shaped shimmer placeholders. Heights/rounding match the `.btn`
@@ -93,17 +95,9 @@ function BottomButton() {
 }
 
 export function HeroCtas() {
-  return (
-    <SessionProvider>
-      <HeroButtons />
-    </SessionProvider>
-  );
+  return <HeroButtons />;
 }
 
 export function BottomCta() {
-  return (
-    <SessionProvider>
-      <BottomButton />
-    </SessionProvider>
-  );
+  return <BottomButton />;
 }

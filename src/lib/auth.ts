@@ -38,12 +38,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers,
   callbacks: {
     async jwt({ token, user }) {
-      if (user) token.uid = user.id;
+      if (user) {
+        token.uid = user.id;
+        // Compute admin status once at sign-in and persist it in the JWT, so
+        // the client-side navbar (src/components/TopNav.tsx) can show the
+        // Admin link without ADMIN_EMAIL ever reaching the browser. Logic
+        // mirrors isAdminEmail() in src/lib/admin.ts — inlined here to avoid a
+        // circular import (admin.ts imports `auth` from this file).
+        const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+        token.isAdmin =
+          !!adminEmail && (user.email ?? '').trim().toLowerCase() === adminEmail;
+      }
       return token;
     },
     async session({ session, token }) {
-      if (session.user && token.uid) {
-        (session.user as { id?: string }).id = token.uid as string;
+      if (session.user) {
+        if (token.uid) (session.user as { id?: string }).id = token.uid as string;
+        (session.user as { isAdmin?: boolean }).isAdmin = Boolean(
+          (token as { isAdmin?: boolean }).isAdmin,
+        );
       }
       return session;
     },
