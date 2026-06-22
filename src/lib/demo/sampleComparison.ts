@@ -33,12 +33,32 @@ export const SAMPLE_LEETCODE_POSTS: DemoLeetcodePost[] = [
 ];
 
 export const SAMPLE_AI_INSIGHTS = {
-  verdict:
-    'Atlas Cloud wins on total weighted score because it balances top-tier cash comp with strong review sub-scores. Meridian is safer on work-life and stability, while Nimbus wins equity upside but gives up near-term certainty.',
-  tradeoffs:
-    'Picking Atlas means accepting lower benefits and less flexibility than Meridian. Picking Nimbus means taking higher volatility: stronger upside, but weaker current cash and work-life signals.',
-  negotiation:
-    'Ask Atlas to improve benefits or add a retention grant. Ask Meridian to close the equity gap. Ask Nimbus for a downside-protection clause or a stronger year-1 cash floor.',
+  verdict: [
+    'Atlas Cloud is the highest-ranked offer because it is the best balance of near-term cash and quality-of-employer signals.',
+    'It leads on base, bonus, and sign-on while still staying competitive on growth and review dimensions.',
+    'Meridian Systems is the lower-risk alternative if your priority is work mode, benefits, and stability over upside.',
+    'Nimbus AI is the upside bet: strongest equity and growth potential, but more volatility and weaker work-life inputs.',
+  ],
+  tradeoffs: [
+    'Choosing Atlas over Meridian means giving up remote flexibility and some benefits value for higher total comp momentum.',
+    'Choosing Meridian over Atlas reduces upside but improves day-to-day sustainability and predictability.',
+    'Choosing Nimbus over both alternatives increases long-term optionality but concentrates risk in equity outcomes.',
+    'If market conditions worsen, Nimbus is most sensitive to valuation compression; Meridian is likely most defensive.',
+  ],
+  negotiation: [
+    'Atlas Cloud: ask for either a benefits uplift or a year-2 refresh grant to reduce post-sign-on drop-off.',
+    'Meridian Systems: anchor on closing equity and sign-on gap while preserving remote arrangement.',
+    'Nimbus AI: ask for downside protection (cash floor, partial vest acceleration, or severance language).',
+    'For all three: present competing offers as market validation and request a written response window before expiry.',
+  ],
+  questions: [
+    'How is performance measured in the first two review cycles, and what does top-decile performance typically earn?',
+    'What percentage of people at this level receive meaningful refresh equity in year 2 and year 3?',
+    'How often do org or manager changes happen in this team, and what is the expected stability over 12 months?',
+    'What are the on-call expectations in practice (frequency, pager load, escalation ownership)?',
+    'For hybrid/onsite roles, how rigid is policy enforcement and what flexibility is manager-discretionary?',
+    'What is the realistic promotion velocity for someone entering at this level based on recent cohorts?',
+  ],
 };
 
 /**

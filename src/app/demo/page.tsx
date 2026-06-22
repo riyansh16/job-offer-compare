@@ -127,15 +127,35 @@ export default function DemoPage() {
         <div className="space-y-2 text-sm">
           <div className="rounded-lg border p-3">
             <div className="font-medium">Verdict</div>
-            <p className="mt-1 text-[rgb(var(--muted-foreground))]">{SAMPLE_AI_INSIGHTS.verdict}</p>
+            <ul className="mt-1 list-disc space-y-1 pl-5 text-[rgb(var(--muted-foreground))]">
+              {SAMPLE_AI_INSIGHTS.verdict.map((line, idx) => (
+                <li key={`verdict-${idx}`}>{line}</li>
+              ))}
+            </ul>
           </div>
           <div className="rounded-lg border p-3">
             <div className="font-medium">Trade-offs</div>
-            <p className="mt-1 text-[rgb(var(--muted-foreground))]">{SAMPLE_AI_INSIGHTS.tradeoffs}</p>
+            <ul className="mt-1 list-disc space-y-1 pl-5 text-[rgb(var(--muted-foreground))]">
+              {SAMPLE_AI_INSIGHTS.tradeoffs.map((line, idx) => (
+                <li key={`tradeoffs-${idx}`}>{line}</li>
+              ))}
+            </ul>
           </div>
           <div className="rounded-lg border p-3">
             <div className="font-medium">Negotiation talking points</div>
-            <p className="mt-1 text-[rgb(var(--muted-foreground))]">{SAMPLE_AI_INSIGHTS.negotiation}</p>
+            <ul className="mt-1 list-disc space-y-1 pl-5 text-[rgb(var(--muted-foreground))]">
+              {SAMPLE_AI_INSIGHTS.negotiation.map((line, idx) => (
+                <li key={`negotiation-${idx}`}>{line}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-lg border p-3">
+            <div className="font-medium">Recruiter questions</div>
+            <ul className="mt-1 list-disc space-y-1 pl-5 text-[rgb(var(--muted-foreground))]">
+              {SAMPLE_AI_INSIGHTS.questions.map((line, idx) => (
+                <li key={`questions-${idx}`}>{line}</li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>
