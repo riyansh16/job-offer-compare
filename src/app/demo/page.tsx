@@ -2,7 +2,11 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
 import { ComparisonResults } from '@/components/ComparisonResults';
-import { getSampleComparison } from '@/lib/demo/sampleComparison';
+import {
+  getSampleComparison,
+  SAMPLE_AI_INSIGHTS,
+  SAMPLE_LEETCODE_POSTS,
+} from '@/lib/demo/sampleComparison';
 import { siteUrl } from '@/lib/site';
 
 // Fully static, public, no auth/DB. The sample comparison is computed at
@@ -22,6 +26,21 @@ export const metadata: Metadata = {
 
 export default function DemoPage() {
   const snapshot = getSampleComparison();
+  const growthSummary = snapshot.results
+    .map((r) => {
+      const pct = r.equityGrowthAppliedPct ?? 0;
+      const src = r.equityGrowthSource ?? 'none';
+      if (src === 'none' || pct === 0) {
+        return `${r.companyName}: 0% (default)`;
+      }
+      const sign = pct > 0 ? '+' : '';
+      const label = src === 'cagr' ? 'CAGR' : 'manual';
+      return `${r.companyName}: ${sign}${pct.toFixed(1)}% (${label})`;
+    })
+    .join(' · ');
+  const anyGrowthApplied = snapshot.results.some(
+    (r) => (r.equityGrowthAppliedPct ?? 0) !== 0 && r.equityGrowthSource !== 'none',
+  );
 
   return (
     <div className="space-y-6">
@@ -55,7 +74,71 @@ export default function DemoPage() {
         </div>
       </div>
 
-      <ComparisonResults snapshot={snapshot} />
+      <ComparisonResults
+        snapshot={snapshot}
+        afterVerdict={
+          <div
+            className={`card text-sm ${
+              anyGrowthApplied
+                ? 'border-l-4 border-l-[rgb(var(--primary))] bg-[rgb(var(--primary))]/5'
+                : ''
+            }`}
+          >
+            <div className="font-medium">Equity-growth assumptions applied</div>
+            <div className="mt-1 text-[rgb(var(--muted-foreground))]">{growthSummary}</div>
+          </div>
+        }
+      />
+
+      <section className="card space-y-3">
+        <h2 className="font-semibold">Recent comp reports from LeetCode</h2>
+        <p className="text-xs text-[rgb(var(--muted-foreground))]">
+          Demo preview of the kind of community compensation posts OfferLens surfaces for each
+          company/level match.
+        </p>
+        <ul className="space-y-2 text-sm">
+          {SAMPLE_LEETCODE_POSTS.map((post) => (
+            <li key={`${post.companyName}-${post.postedOn}`} className="rounded-lg border p-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <span className="font-medium">{post.companyName}</span>
+                <span className="text-xs text-[rgb(var(--muted-foreground))]">
+                  {post.yoe}y · {post.postedOn}
+                </span>
+              </div>
+              <a
+                href={post.url}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1 block text-[rgb(var(--primary))] underline hover:no-underline"
+              >
+                {post.title}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="card space-y-3">
+        <h2 className="font-semibold">AI insights</h2>
+        <p className="text-xs text-[rgb(var(--muted-foreground))]">
+          In real comparisons, these are generated from your exact offer data and can be
+          regenerated for alternate takes.
+        </p>
+        <div className="space-y-2 text-sm">
+          <div className="rounded-lg border p-3">
+            <div className="font-medium">Verdict</div>
+            <p className="mt-1 text-[rgb(var(--muted-foreground))]">{SAMPLE_AI_INSIGHTS.verdict}</p>
+          </div>
+          <div className="rounded-lg border p-3">
+            <div className="font-medium">Trade-offs</div>
+            <p className="mt-1 text-[rgb(var(--muted-foreground))]">{SAMPLE_AI_INSIGHTS.tradeoffs}</p>
+          </div>
+          <div className="rounded-lg border p-3">
+            <div className="font-medium">Negotiation talking points</div>
+            <p className="mt-1 text-[rgb(var(--muted-foreground))]">{SAMPLE_AI_INSIGHTS.negotiation}</p>
+          </div>
+        </div>
+      </section>
 
       {/* Bottom CTA — they've seen the payoff; ask for the signup now. */}
       <section className="card space-y-3 text-center">
