@@ -26,6 +26,13 @@ export default function Home() {
         <div className="flex min-h-[38px] justify-center gap-3 pt-4">
           <HeroCtas />
         </div>
+        <p className="pt-1 text-sm text-[rgb(var(--muted-foreground))]">
+          Curious first?{' '}
+          <Link href="/demo" className="text-[rgb(var(--primary))] underline underline-offset-2">
+            See a sample comparison
+          </Link>{' '}
+          — no signup needed.
+        </p>
       </section>
 
       {/* What you get */}

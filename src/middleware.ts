@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 
-const PUBLIC_PATHS = ['/', '/auth/signin', '/auth/signup', '/auth/error', '/privacy', '/terms', '/companies'];
+const PUBLIC_PATHS = ['/', '/auth/signin', '/auth/signup', '/auth/error', '/privacy', '/terms', '/companies', '/demo'];
 
 export default auth((req: NextRequest & { auth: unknown }) => {
   // Canonicalize www -> apex so NextAuth's Host always matches AUTH_URL.
